@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { supabase } from '../supabaseClient'
+import '../index.css'
+
 
 function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [rememberMe, setRememberMe] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -26,8 +27,6 @@ function Login() {
     }
 
     console.log('Login exitoso:', data)
-    // Aquí navegaremos al Dashboard (con React Router después)
-    alert('¡Login exitoso!')
   }
 
   return (
@@ -47,7 +46,7 @@ function Login() {
             <span className="material-icons">sports_esports</span>
           </div>
           <h1 className="login-title">
-            Club de Billar <span>Sabana</span>
+            Billar de la <span>Sabana</span>
           </h1>
           <p className="login-subtitle">Admin Dashboard</p>
         </div>
@@ -56,7 +55,6 @@ function Login() {
           <div className="login-card-body">
             <h2>Welcome back</h2>
 
-            {/* Mensaje de error */}
             {error && (
               <div className="error-message">
                 <span className="material-icons">error_outline</span>
@@ -98,15 +96,6 @@ function Login() {
                 </div>
               </div>
 
-              <div className="checkbox-row">
-                <input
-                  id="remember-me" name="remember-me" type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                />
-                <label htmlFor="remember-me">Remember me</label>
-              </div>
-
               <button
                 className="btn-primary"
                 type="submit"
@@ -123,11 +112,7 @@ function Login() {
           </div>
 
           <div className="login-card-footer">
-            <span>© 2024 Club de Billar Sabana</span>
-            <div>
-              <a href="#">Privacy</a>
-              <a href="#">Terms</a>
-            </div>
+            <span>© 2026 Billar de la Sabana</span>
           </div>
         </div>
 

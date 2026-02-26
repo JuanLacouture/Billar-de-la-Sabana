@@ -1,0 +1,320 @@
+/* Fondo */
+.vt-bg-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  opacity: 0.3;
+  pointer-events: none;
+}
+.vt-bg-overlay img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: blur(20px);
+  transform: scale(1.1);
+}
+.vt-bg-grad {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, #0F172A, rgba(15,23,42,0.8), transparent);
+}
+
+/* Dashboard borroso */
+.vt-dashboard-blur {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  filter: blur(4px);
+  opacity: 0.5;
+  pointer-events: none;
+  user-select: none;
+  background: #0F172A;
+  display: flex;
+  flex-direction: column;
+}
+.vt-dash-header {
+  height: 4rem;
+  background: #1E293B;
+  border-bottom: 1px solid #374151;
+  padding: 0 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.vt-dash-header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.vt-dash-header-left h1 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: white;
+  font-family: "Playfair Display", serif;
+}
+.vt-dash-icon {
+  color: #FCD34D;
+  font-size: 1.875rem !important;
+}
+.vt-dash-avatar {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  background: #4b5563;
+}
+.vt-dash-main {
+  flex: 1;
+  padding: 1.5rem;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+}
+.vt-dash-card {
+  background: #1E293B;
+  border-radius: 0.75rem;
+  height: 12rem;
+}
+.vt-dash-card-wide {
+  grid-column: span 2;
+  height: 16rem;
+}
+.vt-dash-card-tall {
+  height: 16rem;
+}
+
+/* Modal overlay */
+.vt-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+}
+.vt-modal {
+  width: 100%;
+  max-width: 448px;
+  background: #1E293B;
+  border: 1px solid #374151;
+  border-radius: 1rem;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+}
+
+/* Header modal */
+.vt-modal-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem 2rem 1rem;
+}
+.vt-modal-logo {
+  width: 5rem;
+  height: 5rem;
+  background: linear-gradient(to bottom right, #1e293b, #000);
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgba(252, 211, 77, 0.3);
+  box-shadow: 0 10px 15px rgba(0,0,0,0.3);
+  margin-bottom: 1rem;
+  position: relative;
+}
+.vt-modal-logo-icon {
+  color: #FCD34D;
+  font-size: 2.5rem !important;
+  transform: rotate(-45deg);
+  position: absolute;
+  left: 18px;
+  top: 12px;
+}
+.vt-modal-logo-dot {
+  position: absolute;
+  bottom: 1.25rem;
+  right: 1.5rem;
+  width: 0.75rem;
+  height: 0.75rem;
+  background: #3B82F6;
+  border-radius: 9999px;
+  border: 1px solid #0f172a;
+}
+.vt-modal-title {
+  font-family: "Playfair Display", serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: white;
+  text-align: center;
+}
+.vt-modal-title span {
+  color: #FCD34D;
+  font-style: italic;
+}
+.vt-modal-subtitle {
+  color: #9ca3af;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-weight: 500;
+  margin-top: 0.25rem;
+}
+
+/* Body modal */
+.vt-modal-body {
+  padding: 0 2rem 2rem;
+}
+.vt-modal-intro {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+.vt-modal-intro h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: white;
+}
+.vt-modal-intro p {
+  color: #9ca3af;
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+}
+
+/* Reloj */
+.vt-clock {
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid #334155;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.875rem;
+  color: #d1d5db;
+  font-family: monospace;
+}
+.vt-clock-icon {
+  color: #FCD34D;
+  font-size: 1rem !important;
+}
+.vt-clock strong {
+  color: white;
+  font-weight: 700;
+}
+
+/* Form */
+.vt-form-group {
+  margin-bottom: 1.5rem;
+}
+.vt-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #d1d5db;
+  margin-bottom: 0.5rem;
+}
+.vt-input-wrapper {
+  position: relative;
+  border-radius: 0.5rem;
+}
+.vt-input-prefix {
+  position: absolute;
+  top: 50%;
+  left: 0.75rem;
+  transform: translateY(-50%);
+  color: #9ca3af;
+  font-weight: 600;
+  pointer-events: none;
+}
+.vt-input-suffix {
+  position: absolute;
+  top: 50%;
+  right: 0.75rem;
+  transform: translateY(-50%);
+  color: #6b7280;
+  font-size: 0.875rem;
+  pointer-events: none;
+}
+.vt-input {
+  display: block;
+  width: 100%;
+  padding: 0.75rem 3.5rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+  border: 1px solid #4b5563;
+  border-radius: 0.5rem;
+  background: rgba(30, 41, 59, 0.8);
+  color: white;
+  font-family: "Inter", sans-serif;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
+}
+.vt-input:focus {
+  border-color: #FCD34D;
+  box-shadow: 0 0 0 3px rgba(252, 211, 77, 0.2);
+}
+.vt-input::placeholder { color: #6b7280; }
+.vt-input-hint {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+/* Botón */
+.vt-btn-primary {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  border: none;
+  border-radius: 0.75rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0F172A;
+  background: #FCD34D;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+  font-family: "Inter", sans-serif;
+  box-shadow: 0 10px 15px rgba(252, 211, 77, 0.2);
+  margin-bottom: 1.5rem;
+}
+.vt-btn-primary:hover {
+  background: #F59E0B;
+  transform: translateY(-2px);
+  border-color: transparent;
+}
+.vt-btn-primary:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Logout */
+.vt-logout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  width: 100%;
+  background: none;
+  border: none;
+  color: #6b7280;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: color 0.2s;
+  font-family: "Inter", sans-serif;
+  padding: 0;
+}
+.vt-logout:hover {
+  color: #d1d5db;
+  border-color: transparent;
+  background: none;
+}
+.vt-logout .material-icons {
+  font-size: 1rem !important;
+}
