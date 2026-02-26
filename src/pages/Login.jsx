@@ -1,13 +1,33 @@
 import { useState } from 'react'
+import { supabase } from '../supabaseClient'
 
 function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [rememberMe, setRememberMe] = useState(false)
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    console.log({ email, password, rememberMe })
+    setError('')
+    setLoading(true)
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    setLoading(false)
+
+    if (error) {
+      setError('Credenciales incorrectas. Intenta de nuevo.')
+      return
+    }
+
+    console.log('Login exitoso:', data)
+    // Aquí navegaremos al Dashboard (con React Router después)
+    alert('¡Login exitoso!')
   }
 
   return (
@@ -35,6 +55,15 @@ function Login() {
         <div className="login-card">
           <div className="login-card-body">
             <h2>Welcome back</h2>
+
+            {/* Mensaje de error */}
+            {error && (
+              <div className="error-message">
+                <span className="material-icons">error_outline</span>
+                {error}
+              </div>
+            )}
+
             <form onSubmit={handleSubmit}>
               <div className="form-group">
                 <label className="form-label" htmlFor="email">Email address</label>
@@ -46,6 +75,7 @@ function Login() {
                     placeholder="admin@clubbillar.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    required
                   />
                 </div>
               </div>
@@ -63,6 +93,7 @@ function Login() {
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    required
                   />
                 </div>
               </div>
@@ -76,7 +107,13 @@ function Login() {
                 <label htmlFor="remember-me">Remember me</label>
               </div>
 
-              <button className="btn-primary" type="submit">Sign In</button>
+              <button
+                className="btn-primary"
+                type="submit"
+                disabled={loading}
+              >
+                {loading ? 'Iniciando sesión...' : 'Sign In'}
+              </button>
             </form>
 
             <div className="divider">
