@@ -546,3 +546,179 @@
   .da-mesas-grid { grid-template-columns: 1fr; }
   .da-content { padding: 1rem; }
 }
+/* ── Modal ── */
+.da-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.da-modal {
+  background: #fff;
+  border-radius: 1rem;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 25px 60px rgba(0,0,0,0.2);
+  overflow: hidden;
+  margin: 1rem;
+}
+.da-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+.da-modal-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.da-modal-icon {
+  color: #10B981;
+  font-size: 1.75rem !important;
+}
+.da-modal-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+.da-modal-sub {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin: 0;
+}
+.da-modal-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #9ca3af;
+  display: flex;
+  padding: 0.25rem;
+  border-radius: 0.375rem;
+}
+.da-modal-close:hover { color: #111827; background: #f3f4f6; }
+
+.da-modal-body {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+.da-modal-info-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #374151;
+  background: #EFF6FF;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+}
+.da-modal-info-row .material-icons-outlined { color: #3B82F6; font-size: 1.1rem !important; }
+
+.da-modal-field { display: flex; flex-direction: column; gap: 0.5rem; }
+.da-modal-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+}
+.da-modal-label .material-icons-outlined { font-size: 1rem !important; color: #6b7280; }
+
+.da-modal-dropdown-wrapper { position: relative; }
+.da-modal-input {
+  width: 100%;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  background: #f9fafb;
+  color: #111827;
+  outline: none;
+  font-family: inherit;
+}
+.da-modal-input:focus { border-color: #3B82F6; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+
+.da-modal-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0; right: 0;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+  list-style: none;
+  margin: 0; padding: 0.25rem 0;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 10;
+}
+.da-modal-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 1rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+.da-modal-dropdown-item:hover { background: #f3f4f6; }
+.da-modal-dropdown-item .material-icons-outlined { font-size: 1rem !important; color: #9ca3af; }
+.da-modal-dropdown-nombre { font-weight: 500; color: #111827; margin: 0; }
+.da-modal-dropdown-tel { font-size: 0.75rem; color: #9ca3af; margin: 0; }
+.da-modal-dropdown-empty { padding: 0.75rem 1rem; font-size: 0.875rem; color: #9ca3af; text-align: center; }
+
+.da-modal-selected {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: #10B981;
+  margin: 0;
+}
+.da-modal-selected .material-icons-outlined { font-size: 1rem !important; }
+
+.da-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+.da-modal-btn-cancel {
+  padding: 0.625rem 1.25rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  background: #fff;
+  font-size: 0.875rem;
+  color: #374151;
+  cursor: pointer;
+  font-family: inherit;
+}
+.da-modal-btn-cancel:hover { background: #f3f4f6; }
+.da-modal-btn-confirm {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.625rem 1.25rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: #10B981;
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+}
+.da-modal-btn-confirm:hover { background: #059669; }
+.da-modal-btn-confirm:disabled { opacity: 0.6; cursor: not-allowed; }
+.da-modal-btn-confirm .material-icons-outlined { font-size: 1rem !important; }

@@ -22,7 +22,7 @@ function calcularSegundos(horaInicio) {
   const inicio = new Date(horaInicio)
   const ahora = new Date()
   const diff = Math.floor((ahora - inicio) / 1000)
-  return diff < 0 ? 0 : diff  // ← nunca negativo
+  return diff < 0 ? 0 : diff
 }
 
 function calcularValor(horaInicio, precioMinuto) {
@@ -36,11 +36,145 @@ function calcularValor(horaInicio, precioMinuto) {
   }).format(total)
 }
 
+// ── Popup de inicio de mesa ──────────────────────────────────────────
+function ModalIniciarMesa({ mesa, onConfirmar, onCancelar }) {
+  const [clientes, setClientes] = useState([])
+  const [busqueda, setBusqueda] = useState('')
+  const [clienteSeleccionado, setClienteSeleccionado] = useState(null)
+  const [dropdownAbierto, setDropdownAbierto] = useState(false)
+  const [guardando, setGuardando] = useState(false)
+
+  const ahora = new Date()
+  const horaTexto = ahora.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
+
+  useEffect(() => {
+    supabase
+      .from('clientes')
+      .select('id, nombre, telefono')
+      .order('nombre', { ascending: true })
+      .then(({ data }) => { if (data) setClientes(data) })
+  }, [])
+
+  const clientesFiltrados = clientes.filter(c =>
+    c.nombre.toLowerCase().includes(busqueda.toLowerCase())
+  )
+
+  const handleSeleccionar = (cliente) => {
+    setClienteSeleccionado(cliente)
+    setBusqueda(cliente.nombre)
+    setDropdownAbierto(false)
+  }
+
+  const handleConfirmar = async () => {
+    setGuardando(true)
+    await onConfirmar(mesa, clienteSeleccionado)
+    setGuardando(false)
+  }
+
+  return (
+    <div className="da-modal-backdrop" onClick={onCancelar}>
+      <div className="da-modal" onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="da-modal-header">
+          <div className="da-modal-title-row">
+            <span className="material-icons-outlined da-modal-icon">sports_bar</span>
+            <div>
+              <h3 className="da-modal-title">Iniciar Mesa</h3>
+              <p className="da-modal-sub">Mesa {String(mesa.numero).padStart(2, '0')} · {mesa.tipo}</p>
+            </div>
+          </div>
+          <button className="da-modal-close" onClick={onCancelar}>
+            <span className="material-icons-outlined">close</span>
+          </button>
+        </div>
+
+        {/* Info de apertura */}
+        <div className="da-modal-body">
+          <div className="da-modal-info-row">
+            <span className="material-icons-outlined">schedule</span>
+            <span>Hora de apertura: <strong>{horaTexto}</strong></span>
+          </div>
+
+          {/* Buscador de clientes */}
+          <div className="da-modal-field">
+            <label className="da-modal-label">
+              <span className="material-icons-outlined">person_search</span>
+              Cliente
+            </label>
+            <div className="da-modal-dropdown-wrapper">
+              <input
+                className="da-modal-input"
+                type="text"
+                placeholder="Buscar por nombre..."
+                value={busqueda}
+                onChange={e => {
+                  setBusqueda(e.target.value)
+                  setClienteSeleccionado(null)
+                  setDropdownAbierto(true)
+                }}
+                onFocus={() => setDropdownAbierto(true)}
+              />
+              {dropdownAbierto && busqueda.length > 0 && (
+                <ul className="da-modal-dropdown">
+                  {clientesFiltrados.length > 0 ? (
+                    clientesFiltrados.map(c => (
+                      <li
+                        key={c.id}
+                        className="da-modal-dropdown-item"
+                        onClick={() => handleSeleccionar(c)}
+                      >
+                        <span className="material-icons-outlined">person</span>
+                        <div>
+                          <p className="da-modal-dropdown-nombre">{c.nombre}</p>
+                          {c.telefono && (
+                            <p className="da-modal-dropdown-tel">{c.telefono}</p>
+                          )}
+                        </div>
+                      </li>
+                    ))
+                  ) : (
+                    <li className="da-modal-dropdown-empty">Sin resultados</li>
+                  )}
+                </ul>
+              )}
+            </div>
+            {clienteSeleccionado && (
+              <p className="da-modal-selected">
+                <span className="material-icons-outlined">check_circle</span>
+                {clienteSeleccionado.nombre} seleccionado
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Botones */}
+        <div className="da-modal-footer">
+          <button className="da-modal-btn-cancel" onClick={onCancelar}>
+            Cancelar
+          </button>
+          <button
+            className="da-modal-btn-confirm"
+            onClick={handleConfirmar}
+            disabled={guardando}
+          >
+            <span className="material-icons-outlined">play_arrow</span>
+            {guardando ? 'Iniciando...' : 'Confirmar inicio'}
+          </button>
+        </div>
+
+      </div>
+    </div>
+  )
+}
+
+// ── Dashboard principal ──────────────────────────────────────────────
 function DashboardAdmin() {
   const [mesas, setMesas] = useState([])
   const [filtro, setFiltro] = useState('Todo')
   const [cargando, setCargando] = useState(true)
   const [, setTick] = useState(0)
+  const [modalMesa, setModalMesa] = useState(null) // ← mesa seleccionada para el modal
 
   const cargarMesas = async () => {
     setCargando(true)
@@ -52,26 +186,46 @@ function DashboardAdmin() {
     setCargando(false)
   }
 
-const iniciarMesa = async (id) => {
-  const ahora = new Date()
-  const offsetMs = ahora.getTimezoneOffset() * 60000
-  const horaLocal = new Date(ahora.getTime() - offsetMs).toISOString().slice(0, -1) + '-05:00'
+  // ← Abre el modal con la mesa elegida
+  const abrirModal = (mesa) => setModalMesa(mesa)
+  const cerrarModal = () => setModalMesa(null)
 
-  const { error } = await supabase
-    .from('mesas')
-    .update({
-      en_uso: true,
-      hora_inicio: horaLocal,
-    })
-    .eq('id', id)
+  // ← Confirma inicio: actualiza mesas + crea cuenta
+  const confirmarInicio = async (mesa, cliente) => {
+    const ahora = new Date()
+    const offsetMs = ahora.getTimezoneOffset() * 60000
+    const horaLocal = new Date(ahora.getTime() - offsetMs).toISOString().slice(0, -1) + '-05:00'
 
-  if (error) {
-    console.error('Error al iniciar mesa:', error)
-  } else {
-    cargarMesas() // ← recarga inmediatamente al iniciar
+    const { data: sesion } = await supabase.auth.getSession()
+    const adminId = sesion?.session?.user?.id
+
+    // 1. Actualiza la mesa
+    const { error: errorMesa } = await supabase
+      .from('mesas')
+      .update({ en_uso: true, hora_inicio: horaLocal })
+      .eq('id', mesa.id)
+
+    if (errorMesa) {
+      console.error('Error al iniciar mesa:', errorMesa)
+      return
+    }
+
+    // 2. Crea la cuenta
+    const { error: errorCuenta } = await supabase
+      .from('cuentas')
+      .insert({
+        mesa_id:       mesa.id,
+        cliente_id:    cliente?.id ?? null,
+        admin_id:      adminId,
+        hora_apertura: horaLocal,
+        estado:        'abierta',
+      })
+
+    if (errorCuenta) console.error('Error al crear cuenta:', errorCuenta)
+
+    cerrarModal()
+    cargarMesas()
   }
-}
-
 
   useEffect(() => {
     let activo = true
@@ -117,11 +271,7 @@ const iniciarMesa = async (id) => {
   }, [])
 
   const tiposFiltro = ['Todo', '3 Bandas', 'Pool', 'Libre', 'Bolirana', 'Mano de Cartas']
-
-  const mesasFiltradas = filtro === 'Todo'
-    ? mesas
-    : mesas.filter(m => m.tipo === filtro)
-
+  const mesasFiltradas = filtro === 'Todo' ? mesas : mesas.filter(m => m.tipo === filtro)
   const mesasActivas = mesas.filter(m => m.en_uso).length
 
   const handleLogout = async () => {
@@ -130,6 +280,16 @@ const iniciarMesa = async (id) => {
 
   return (
     <div className="da-root">
+
+      {/* Modal */}
+      {modalMesa && (
+        <ModalIniciarMesa
+          mesa={modalMesa}
+          onConfirmar={confirmarInicio}
+          onCancelar={cerrarModal}
+        />
+      )}
+
       <aside className="da-sidebar">
         <div className="da-sidebar-logo">
           <span className="material-icons-outlined da-sidebar-icon">sports_esports</span>
@@ -141,24 +301,19 @@ const iniciarMesa = async (id) => {
 
         <nav className="da-nav">
           <a href="#" className="da-nav-item da-nav-active">
-            <span className="material-icons-outlined">dashboard</span>
-            Dashboard
+            <span className="material-icons-outlined">dashboard</span>Dashboard
           </a>
           <a href="#" className="da-nav-item">
-            <span className="material-icons-outlined">inventory_2</span>
-            Inventario
+            <span className="material-icons-outlined">inventory_2</span>Inventario
           </a>
           <a href="#" className="da-nav-item">
-            <span className="material-icons-outlined">receipt_long</span>
-            Cuentas
+            <span className="material-icons-outlined">receipt_long</span>Cuentas
           </a>
           <a href="#" className="da-nav-item">
-            <span className="material-icons-outlined">bar_chart</span>
-            Reportes
+            <span className="material-icons-outlined">bar_chart</span>Reportes
           </a>
           <a href="#" className="da-nav-item">
-            <span className="material-icons-outlined">people</span>
-            Clientes
+            <span className="material-icons-outlined">people</span>Clientes
           </a>
         </nav>
 
@@ -202,19 +357,14 @@ const iniciarMesa = async (id) => {
               <div className="da-stat-top">
                 <div>
                   <p className="da-stat-label">Mesas Activas</p>
-                  <h3 className="da-stat-value">
-                    {mesasActivas}<span className="da-stat-total">/{mesas.length}</span>
-                  </h3>
+                  <h3 className="da-stat-value">{mesasActivas}<span className="da-stat-total">/{mesas.length}</span></h3>
                 </div>
                 <div className="da-stat-icon" style={{ background: '#EFF6FF', color: '#3B82F6' }}>
                   <span className="material-icons-outlined">table_restaurant</span>
                 </div>
               </div>
               <div className="da-progress-bar">
-                <div style={{
-                  width: mesas.length ? `${(mesasActivas / mesas.length) * 100}%` : '0%',
-                  background: '#3B82F6'
-                }}></div>
+                <div style={{ width: mesas.length ? `${(mesasActivas / mesas.length) * 100}%` : '0%', background: '#3B82F6' }}></div>
               </div>
             </div>
 
@@ -229,9 +379,7 @@ const iniciarMesa = async (id) => {
                   <span className="material-icons-outlined">payments</span>
                 </div>
               </div>
-              <p className="da-stat-trend">
-                <span className="material-icons-outlined">trending_up</span> +12% vs ayer
-              </p>
+              <p className="da-stat-trend"><span className="material-icons-outlined">trending_up</span> +12% vs ayer</p>
             </div>
 
             <div className="da-stat-card">
@@ -266,34 +414,22 @@ const iniciarMesa = async (id) => {
           <div className="da-filters">
             <div className="da-filter-pills">
               {tiposFiltro.map(f => (
-                <button
-                  key={f}
-                  className={`da-pill ${filtro === f ? 'da-pill-active' : ''}`}
-                  onClick={() => setFiltro(f)}
-                >
+                <button key={f} className={`da-pill ${filtro === f ? 'da-pill-active' : ''}`} onClick={() => setFiltro(f)}>
                   {f}
                 </button>
               ))}
             </div>
             <div className="da-legend">
-              <div className="da-legend-item">
-                <span className="da-dot da-dot-green"></span> Ocupado
-              </div>
-              <div className="da-legend-item">
-                <span className="da-dot da-dot-gray"></span> Disponible
-              </div>
+              <div className="da-legend-item"><span className="da-dot da-dot-green"></span> Ocupado</div>
+              <div className="da-legend-item"><span className="da-dot da-dot-gray"></span> Disponible</div>
             </div>
           </div>
 
           <div className="da-mesas-grid">
             {cargando ? (
-              <p style={{ color: '#9ca3af', gridColumn: '1/-1', textAlign: 'center', padding: '2rem' }}>
-                Cargando mesas...
-              </p>
+              <p style={{ color: '#9ca3af', gridColumn: '1/-1', textAlign: 'center', padding: '2rem' }}>Cargando mesas...</p>
             ) : mesasFiltradas.length === 0 ? (
-              <p style={{ color: '#9ca3af', gridColumn: '1/-1', textAlign: 'center', padding: '2rem' }}>
-                No hay mesas para mostrar.
-              </p>
+              <p style={{ color: '#9ca3af', gridColumn: '1/-1', textAlign: 'center', padding: '2rem' }}>No hay mesas para mostrar.</p>
             ) : (
               mesasFiltradas.map(mesa => {
                 const color = colorTipo[mesa.tipo] || 'gray'
@@ -310,18 +446,14 @@ const iniciarMesa = async (id) => {
                         <span className={`da-mesa-num da-num-${ocupada ? color : 'gray'}`}>
                           {String(mesa.numero).padStart(2, '0')}
                         </span>
-                        <span className={`da-mesa-tipo da-tipo-${ocupada ? color : 'gray'}`}>
-                          {mesa.tipo}
-                        </span>
+                        <span className={`da-mesa-tipo da-tipo-${ocupada ? color : 'gray'}`}>{mesa.tipo}</span>
                       </div>
 
                       {ocupada ? (
                         <div className="da-mesa-tiempo">
                           <h4 className="da-mesa-reloj">{tiempoStr}</h4>
                           <p className="da-mesa-tiempo-label">Tiempo transcurrido</p>
-                          {mesa.cliente_nombre && (
-                            <p className="da-mesa-cliente">👤 {mesa.cliente_nombre}</p>
-                          )}
+                          {mesa.cliente_nombre && <p className="da-mesa-cliente">👤 {mesa.cliente_nombre}</p>}
                         </div>
                       ) : (
                         <div className="da-mesa-vacia">
@@ -350,10 +482,8 @@ const iniciarMesa = async (id) => {
                           </button>
                         </>
                       ) : (
-                        <button
-                          className="da-overlay-btn-wide da-overlay-green"
-                          onClick={() => iniciarMesa(mesa.id)}
-                        >
+                        // ← ahora abre el modal en vez de iniciar directo
+                        <button className="da-overlay-btn-wide da-overlay-green" onClick={() => abrirModal(mesa)}>
                           <span className="material-icons-outlined">play_arrow</span> Iniciar
                         </button>
                       )}
@@ -364,9 +494,7 @@ const iniciarMesa = async (id) => {
             )}
           </div>
 
-          <div className="da-footer-text">
-            © 2026 Club de Billar Sabana. Panel de Administración v2.0
-          </div>
+          <div className="da-footer-text">© 2026 Club de Billar Sabana. Panel de Administración v2.0</div>
         </div>
       </main>
     </div>
