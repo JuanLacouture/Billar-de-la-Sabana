@@ -30,7 +30,7 @@ function Login() {
   }
 
   return (
-    <>
+    <div className="login-root">
       <div className="bg-overlay">
         <img
           alt="Billiard balls background"
@@ -121,7 +121,7 @@ function Login() {
           <a className="link-primary" href="#">Contact Support</a>
         </p>
       </div>
-    </>
+    </div>
   )
 }
 
