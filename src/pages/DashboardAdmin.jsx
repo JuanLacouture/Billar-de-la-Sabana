@@ -38,31 +38,35 @@ function calcularValor(horaInicio, precioMinuto) {
 function DashboardAdmin() {
   const [mesas, setMesas] = useState([])
   const [filtro, setFiltro] = useState('Todo')
+  const [cargando, setCargando] = useState(true)
   const [, setTick] = useState(0)
 
-  // Carga manual (botón Actualizar)
   const cargarMesas = async () => {
+    setCargando(true)
     const { data, error } = await supabase
       .from('mesas')
       .select('*')
       .order('numero', { ascending: true })
-    if (!error) setMesas(data)
+    if (!error && data) setMesas(data)
+    setCargando(false)
   }
 
-  // Carga inicial + suscripción realtime
   useEffect(() => {
     let activo = true
+    setCargando(true)
 
-    // Carga inicial en callback, no síncrona
-    supabase
-      .from('mesas')
-      .select('*')
-      .order('numero', { ascending: true })
-      .then(({ data, error }) => {
-        if (!error && activo) setMesas(data)
-      })
+    // ← espera que la sesión esté restaurada antes de consultar
+    supabase.auth.getSession().then(() => {
+      supabase
+        .from('mesas')
+        .select('*')
+        .order('numero', { ascending: true })
+        .then(({ data, error }) => {
+          if (!error && activo && data) setMesas(data)
+          if (activo) setCargando(false)
+        })
+    })
 
-    // Suscripción realtime — actualiza solo la fila que cambió
     const canal = supabase
       .channel('mesas-cambios')
       .on('postgres_changes',
@@ -86,7 +90,6 @@ function DashboardAdmin() {
     }
   }, [])
 
-  // Timer cada segundo para relojes en vivo
   useEffect(() => {
     const intervalo = setInterval(() => setTick(t => t + 1), 1000)
     return () => clearInterval(intervalo)
@@ -262,69 +265,79 @@ function DashboardAdmin() {
           </div>
 
           <div className="da-mesas-grid">
-            {mesasFiltradas.map(mesa => {
-              const color = colorTipo[mesa.tipo] || 'gray'
-              const ocupada = mesa.en_uso
-              const segundos = ocupada ? calcularSegundos(mesa.hora_inicio) : 0
-              const tiempoStr = ocupada ? segundosAFormato(segundos) : null
-              const valorStr = ocupada ? calcularValor(mesa.hora_inicio, mesa.precio_minuto) : null
+            {cargando ? (
+              <p style={{ color: '#9ca3af', gridColumn: '1/-1', textAlign: 'center', padding: '2rem' }}>
+                Cargando mesas...
+              </p>
+            ) : mesasFiltradas.length === 0 ? (
+              <p style={{ color: '#9ca3af', gridColumn: '1/-1', textAlign: 'center', padding: '2rem' }}>
+                No hay mesas para mostrar.
+              </p>
+            ) : (
+              mesasFiltradas.map(mesa => {
+                const color = colorTipo[mesa.tipo] || 'gray'
+                const ocupada = mesa.en_uso
+                const segundos = ocupada ? calcularSegundos(mesa.hora_inicio) : 0
+                const tiempoStr = ocupada ? segundosAFormato(segundos) : null
+                const valorStr = ocupada ? calcularValor(mesa.hora_inicio, mesa.precio_minuto) : null
 
-              return (
-                <div key={mesa.id} className={`da-mesa-card da-mesa-${ocupada ? color : 'gray'}`}>
-                  <div className={`da-mesa-top-bar da-bar-${ocupada ? color : 'gray'}`}></div>
-                  <div className="da-mesa-body">
-                    <div className="da-mesa-header">
-                      <span className={`da-mesa-num da-num-${ocupada ? color : 'gray'}`}>
-                        {String(mesa.numero).padStart(2, '0')}
-                      </span>
-                      <span className={`da-mesa-tipo da-tipo-${ocupada ? color : 'gray'}`}>
-                        {mesa.tipo}
-                      </span>
+                return (
+                  <div key={mesa.id} className={`da-mesa-card da-mesa-${ocupada ? color : 'gray'}`}>
+                    <div className={`da-mesa-top-bar da-bar-${ocupada ? color : 'gray'}`}></div>
+                    <div className="da-mesa-body">
+                      <div className="da-mesa-header">
+                        <span className={`da-mesa-num da-num-${ocupada ? color : 'gray'}`}>
+                          {String(mesa.numero).padStart(2, '0')}
+                        </span>
+                        <span className={`da-mesa-tipo da-tipo-${ocupada ? color : 'gray'}`}>
+                          {mesa.tipo}
+                        </span>
+                      </div>
+
+                      {ocupada ? (
+                        <div className="da-mesa-tiempo">
+                          <h4 className="da-mesa-reloj">{tiempoStr}</h4>
+                          <p className="da-mesa-tiempo-label">Tiempo transcurrido</p>
+                          {mesa.cliente_nombre && (
+                            <p className="da-mesa-cliente">👤 {mesa.cliente_nombre}</p>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="da-mesa-vacia">
+                          <span className="material-icons-outlined da-mesa-play-icon">play_circle_outline</span>
+                          <p>Iniciar Mesa</p>
+                        </div>
+                      )}
+
+                      <div className="da-mesa-footer">
+                        <div className="da-mesa-estado">
+                          <span className={`da-dot ${ocupada ? 'da-dot-green da-dot-pulse' : 'da-dot-gray'}`}></span>
+                          <span>{ocupada ? 'Ocupada' : 'Disponible'}</span>
+                        </div>
+                        <span className="da-mesa-valor">{valorStr ?? '--'}</span>
+                      </div>
                     </div>
 
-                    {ocupada ? (
-                      <div className="da-mesa-tiempo">
-                        <h4 className="da-mesa-reloj">{tiempoStr}</h4>
-                        <p className="da-mesa-tiempo-label">Tiempo transcurrido</p>
-                        {mesa.cliente_nombre && (
-                          <p className="da-mesa-cliente">👤 {mesa.cliente_nombre}</p>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="da-mesa-vacia">
-                        <span className="material-icons-outlined da-mesa-play-icon">play_circle_outline</span>
-                        <p>Iniciar Mesa</p>
-                      </div>
-                    )}
-
-                    <div className="da-mesa-footer">
-                      <div className="da-mesa-estado">
-                        <span className={`da-dot ${ocupada ? 'da-dot-green da-dot-pulse' : 'da-dot-gray'}`}></span>
-                        <span>{ocupada ? 'Ocupada' : 'Disponible'}</span>
-                      </div>
-                      <span className="da-mesa-valor">{valorStr ?? '--'}</span>
+                    <div className="da-mesa-overlay">
+                      {ocupada ? (
+                        <>
+                          <button className="da-overlay-btn da-overlay-gold" title="Agregar consumo">
+                            <span className="material-icons-outlined">local_bar</span>
+                          </button>
+                          <button className="da-overlay-btn da-overlay-red" title="Cerrar mesa">
+                            <span className="material-icons-outlined">stop_circle</span>
+                          </button>
+                        </>
+                      ) : (
+                        <button className="da-overlay-btn-wide da-overlay-green">
+                          <span className="material-icons-outlined">play_arrow</span> Iniciar
+                        </button>
+                      )}
                     </div>
                   </div>
-
-                  <div className="da-mesa-overlay">
-                    {ocupada ? (
-                      <>
-                        <button className="da-overlay-btn da-overlay-gold" title="Agregar consumo">
-                          <span className="material-icons-outlined">local_bar</span>
-                        </button>
-                        <button className="da-overlay-btn da-overlay-red" title="Cerrar mesa">
-                          <span className="material-icons-outlined">stop_circle</span>
-                        </button>
-                      </>
-                    ) : (
-                      <button className="da-overlay-btn-wide da-overlay-green">
-                        <span className="material-icons-outlined">play_arrow</span> Iniciar
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
+                )
+              })
+            )}
           </div>
 
           <div className="da-footer-text">
