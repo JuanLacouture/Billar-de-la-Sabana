@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
 import './VerificacionTurno.css'
 
-function VerificacionTurno() {
+function VerificacionTurno({ onTurnoIniciado }) {
   const [base, setBase] = useState('150.000')
   const [loading, setLoading] = useState(false)
   const [hora, setHora] = useState('')
@@ -24,9 +24,9 @@ function VerificacionTurno() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
-    console.log('Turno iniciado con base:', base)
-    // Aquí conectaremos con Supabase después
+    // Aquí después guardamos en Supabase
     setLoading(false)
+    onTurnoIniciado()
   }
 
   const handleLogout = async () => {
@@ -35,7 +35,6 @@ function VerificacionTurno() {
 
   return (
     <>
-      {/* Fondo */}
       <div className="vt-bg-overlay">
         <img
           alt="Billiard balls background"
@@ -44,7 +43,6 @@ function VerificacionTurno() {
         <div className="vt-bg-grad"></div>
       </div>
 
-      {/* Dashboard borroso de fondo */}
       <div className="vt-dashboard-blur">
         <header className="vt-dash-header">
           <div className="vt-dash-header-left">
@@ -62,11 +60,8 @@ function VerificacionTurno() {
         </main>
       </div>
 
-      {/* Modal principal */}
       <div className="vt-modal-overlay">
         <div className="vt-modal">
-
-          {/* Header modal */}
           <div className="vt-modal-header">
             <div className="vt-modal-logo">
               <span className="material-icons vt-modal-logo-icon">sports_bar</span>
@@ -78,14 +73,12 @@ function VerificacionTurno() {
             <p className="vt-modal-subtitle">Portal de Empleados</p>
           </div>
 
-          {/* Body modal */}
           <div className="vt-modal-body">
             <div className="vt-modal-intro">
               <h3>Abrir Nuevo Turno</h3>
               <p>Ingresa la base para comenzar a operar.</p>
             </div>
 
-            {/* Reloj */}
             <div className="vt-clock">
               <span className="material-icons vt-clock-icon">schedule</span>
               <span>Hora del Servidor: <strong>{hora}</strong></span>
