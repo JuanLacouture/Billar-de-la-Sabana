@@ -21,7 +21,8 @@ function calcularSegundos(horaInicio) {
   if (!horaInicio) return 0
   const inicio = new Date(horaInicio)
   const ahora = new Date()
-  return Math.floor((ahora - inicio) / 1000)
+  const diff = Math.floor((ahora - inicio) / 1000)
+  return diff < 0 ? 0 : diff  // ← nunca negativo
 }
 
 function calcularValor(horaInicio, precioMinuto) {
@@ -51,11 +52,31 @@ function DashboardAdmin() {
     setCargando(false)
   }
 
+const iniciarMesa = async (id) => {
+  const ahora = new Date()
+  const offsetMs = ahora.getTimezoneOffset() * 60000
+  const horaLocal = new Date(ahora.getTime() - offsetMs).toISOString().slice(0, -1) + '-05:00'
+
+  const { error } = await supabase
+    .from('mesas')
+    .update({
+      en_uso: true,
+      hora_inicio: horaLocal,
+    })
+    .eq('id', id)
+
+  if (error) {
+    console.error('Error al iniciar mesa:', error)
+  } else {
+    cargarMesas() // ← recarga inmediatamente al iniciar
+  }
+}
+
+
   useEffect(() => {
     let activo = true
     setCargando(true)
 
-    // ← espera que la sesión esté restaurada antes de consultar
     supabase.auth.getSession().then(() => {
       supabase
         .from('mesas')
@@ -329,7 +350,10 @@ function DashboardAdmin() {
                           </button>
                         </>
                       ) : (
-                        <button className="da-overlay-btn-wide da-overlay-green">
+                        <button
+                          className="da-overlay-btn-wide da-overlay-green"
+                          onClick={() => iniciarMesa(mesa.id)}
+                        >
                           <span className="material-icons-outlined">play_arrow</span> Iniciar
                         </button>
                       )}
