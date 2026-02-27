@@ -19,9 +19,7 @@ function segundosAFormato(seg) {
 
 function calcularSegundos(horaInicio) {
   if (!horaInicio) return 0
-  const inicio = new Date(horaInicio)
-  const ahora = new Date()
-  const diff = Math.floor((ahora - inicio) / 1000)
+  const diff = Math.floor((new Date() - new Date(horaInicio)) / 1000)
   return diff < 0 ? 0 : diff
 }
 
@@ -36,7 +34,7 @@ function calcularValor(horaInicio, precioMinuto) {
   }).format(total)
 }
 
-// ── Popup de inicio de mesa ──────────────────────────────────────────
+// ── Modal ────────────────────────────────────────────────────────────
 function ModalIniciarMesa({ mesa, onConfirmar, onCancelar }) {
   const [clientes, setClientes] = useState([])
   const [busqueda, setBusqueda] = useState('')
@@ -44,8 +42,7 @@ function ModalIniciarMesa({ mesa, onConfirmar, onCancelar }) {
   const [dropdownAbierto, setDropdownAbierto] = useState(false)
   const [guardando, setGuardando] = useState(false)
 
-  const ahora = new Date()
-  const horaTexto = ahora.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
+  const horaTexto = new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
 
   useEffect(() => {
     supabase
@@ -75,7 +72,6 @@ function ModalIniciarMesa({ mesa, onConfirmar, onCancelar }) {
     <div className="da-modal-backdrop" onClick={onCancelar}>
       <div className="da-modal" onClick={e => e.stopPropagation()}>
 
-        {/* Header */}
         <div className="da-modal-header">
           <div className="da-modal-title-row">
             <span className="material-icons-outlined da-modal-icon">sports_bar</span>
@@ -89,14 +85,12 @@ function ModalIniciarMesa({ mesa, onConfirmar, onCancelar }) {
           </button>
         </div>
 
-        {/* Info de apertura */}
         <div className="da-modal-body">
           <div className="da-modal-info-row">
             <span className="material-icons-outlined">schedule</span>
             <span>Hora de apertura: <strong>{horaTexto}</strong></span>
           </div>
 
-          {/* Buscador de clientes */}
           <div className="da-modal-field">
             <label className="da-modal-label">
               <span className="material-icons-outlined">person_search</span>
@@ -119,17 +113,11 @@ function ModalIniciarMesa({ mesa, onConfirmar, onCancelar }) {
                 <ul className="da-modal-dropdown">
                   {clientesFiltrados.length > 0 ? (
                     clientesFiltrados.map(c => (
-                      <li
-                        key={c.id}
-                        className="da-modal-dropdown-item"
-                        onClick={() => handleSeleccionar(c)}
-                      >
+                      <li key={c.id} className="da-modal-dropdown-item" onClick={() => handleSeleccionar(c)}>
                         <span className="material-icons-outlined">person</span>
                         <div>
                           <p className="da-modal-dropdown-nombre">{c.nombre}</p>
-                          {c.telefono && (
-                            <p className="da-modal-dropdown-tel">{c.telefono}</p>
-                          )}
+                          {c.telefono && <p className="da-modal-dropdown-tel">{c.telefono}</p>}
                         </div>
                       </li>
                     ))
@@ -148,16 +136,9 @@ function ModalIniciarMesa({ mesa, onConfirmar, onCancelar }) {
           </div>
         </div>
 
-        {/* Botones */}
         <div className="da-modal-footer">
-          <button className="da-modal-btn-cancel" onClick={onCancelar}>
-            Cancelar
-          </button>
-          <button
-            className="da-modal-btn-confirm"
-            onClick={handleConfirmar}
-            disabled={guardando}
-          >
+          <button className="da-modal-btn-cancel" onClick={onCancelar}>Cancelar</button>
+          <button className="da-modal-btn-confirm" onClick={handleConfirmar} disabled={guardando}>
             <span className="material-icons-outlined">play_arrow</span>
             {guardando ? 'Iniciando...' : 'Confirmar inicio'}
           </button>
@@ -168,31 +149,27 @@ function ModalIniciarMesa({ mesa, onConfirmar, onCancelar }) {
   )
 }
 
-// ── Dashboard principal ──────────────────────────────────────────────
-function DashboardAdmin() {
+// ── Dashboard ────────────────────────────────────────────────────────
+function DashboardAdmin({ onNavegar }) {
   const [mesas, setMesas] = useState([])
   const [filtro, setFiltro] = useState('Todo')
   const [cargando, setCargando] = useState(true)
   const [, setTick] = useState(0)
-  const [modalMesa, setModalMesa] = useState(null) // ← mesa seleccionada para el modal
+  const [modalMesa, setModalMesa] = useState(null)
 
   const cargarMesas = async () => {
-  setCargando(true)
-  const { data, error } = await supabase
-    .from('mesas')
-    .select('*, cuentas(cliente_id, estado, clientes(nombre))')
-    .eq('cuentas.estado', 'abierta')  // ← solo la cuenta activa
-    .order('numero', { ascending: true })
-  if (!error && data) setMesas(data)
-  setCargando(false)
-}
+    setCargando(true)
+    const { data, error } = await supabase
+      .from('mesas')
+      .select('*, cuentas(cliente_id, estado, clientes(nombre))')
+      .order('numero', { ascending: true })
+    if (!error && data) setMesas(data)
+    setCargando(false)
+  }
 
-
-  // ← Abre el modal con la mesa elegida
   const abrirModal = (mesa) => setModalMesa(mesa)
   const cerrarModal = () => setModalMesa(null)
 
-  // ← Confirma inicio: actualiza mesas + crea cuenta
   const confirmarInicio = async (mesa, cliente) => {
     const ahora = new Date()
     const offsetMs = ahora.getTimezoneOffset() * 60000
@@ -201,7 +178,6 @@ function DashboardAdmin() {
     const { data: sesion } = await supabase.auth.getSession()
     const adminId = sesion?.session?.user?.id
 
-    // 1. Actualiza la mesa
     const { error: errorMesa } = await supabase
       .from('mesas')
       .update({ en_uso: true, hora_inicio: horaLocal })
@@ -212,7 +188,6 @@ function DashboardAdmin() {
       return
     }
 
-    // 2. Crea la cuenta
     const { error: errorCuenta } = await supabase
       .from('cuentas')
       .insert({
@@ -236,7 +211,7 @@ function DashboardAdmin() {
     supabase.auth.getSession().then(() => {
       supabase
         .from('mesas')
-        .select('*')
+        .select('*, cuentas(cliente_id, estado, clientes(nombre))')
         .order('numero', { ascending: true })
         .then(({ data, error }) => {
           if (!error && activo && data) setMesas(data)
@@ -248,16 +223,7 @@ function DashboardAdmin() {
       .channel('mesas-cambios')
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'mesas' },
-        (payload) => {
-          if (!activo) return
-          if (payload.eventType === 'UPDATE') {
-            setMesas(prev => prev.map(m => m.id === payload.new.id ? payload.new : m))
-          } else if (payload.eventType === 'INSERT') {
-            setMesas(prev => [...prev, payload.new].sort((a, b) => a.numero - b.numero))
-          } else if (payload.eventType === 'DELETE') {
-            setMesas(prev => prev.filter(m => m.id !== payload.old.id))
-          }
-        }
+        () => { if (activo) cargarMesas() } // ← recarga completa con el join al detectar cambio
       )
       .subscribe()
 
@@ -280,10 +246,15 @@ function DashboardAdmin() {
     await supabase.auth.signOut()
   }
 
+  // Nombre del cliente de la cuenta abierta
+  const clienteNombre = (mesa) => {
+    const cuentaAbierta = mesa.cuentas?.find(c => c.estado === 'abierta')
+    return cuentaAbierta?.clientes?.nombre ?? null
+  }
+
   return (
     <div className="da-root">
 
-      {/* Modal */}
       {modalMesa && (
         <ModalIniciarMesa
           mesa={modalMesa}
@@ -308,7 +279,7 @@ function DashboardAdmin() {
           <a href="#" className="da-nav-item">
             <span className="material-icons-outlined">inventory_2</span>Inventario
           </a>
-          <a href="#" className="da-nav-item">
+          <a href="#" className="da-nav-item" onClick={(e) => { e.preventDefault(); onNavegar('cuentas') }}>
             <span className="material-icons-outlined">receipt_long</span>Cuentas
           </a>
           <a href="#" className="da-nav-item">
@@ -439,6 +410,7 @@ function DashboardAdmin() {
                 const segundos = ocupada ? calcularSegundos(mesa.hora_inicio) : 0
                 const tiempoStr = ocupada ? segundosAFormato(segundos) : null
                 const valorStr = ocupada ? calcularValor(mesa.hora_inicio, mesa.precio_minuto) : null
+                const nombre = clienteNombre(mesa)
 
                 return (
                   <div key={mesa.id} className={`da-mesa-card da-mesa-${ocupada ? color : 'gray'}`}>
@@ -452,19 +424,14 @@ function DashboardAdmin() {
                       </div>
 
                       {ocupada ? (
-  <div className="da-mesa-tiempo">
-    <h4 className="da-mesa-reloj">{tiempoStr}</h4>
-    <p className="da-mesa-tiempo-label">Tiempo transcurrido</p>
-    
-    {/* ← nombre del cliente desde la cuenta abierta */}
-    {mesa.cuentas?.[0]?.clientes?.nombre && (
-      <p className="da-mesa-cliente">
-        👤 {mesa.cuentas[0].clientes.nombre}
-      </p>
-    )}
-  </div>
-) : (
-
+                        <div className="da-mesa-tiempo">
+                          <h4 className="da-mesa-reloj">{tiempoStr}</h4>
+                          <p className="da-mesa-tiempo-label">Tiempo transcurrido</p>
+                          {nombre && (
+                            <p className="da-mesa-cliente">👤 {nombre}</p>
+                          )}
+                        </div>
+                      ) : (
                         <div className="da-mesa-vacia">
                           <span className="material-icons-outlined da-mesa-play-icon">play_circle_outline</span>
                           <p>Iniciar Mesa</p>
@@ -491,7 +458,6 @@ function DashboardAdmin() {
                           </button>
                         </>
                       ) : (
-                        // ← ahora abre el modal en vez de iniciar directo
                         <button className="da-overlay-btn-wide da-overlay-green" onClick={() => abrirModal(mesa)}>
                           <span className="material-icons-outlined">play_arrow</span> Iniciar
                         </button>
