@@ -16,11 +16,11 @@ function calcularSegundos(horaInicio) {
 }
 
 const colorTipo = {
-  '3 Bandas': { bg: 'bg-blue', text: 'text-blue' },
-  'Pool':     { bg: 'bg-green', text: 'text-green' },
-  'Mano de Cartas': { bg: 'bg-red', text: 'text-red' },
-  'Libre':    { bg: 'bg-purple', text: 'text-purple' },
-  'Bolirana': { bg: 'bg-orange', text: 'text-orange' },
+  '3 Bandas':     { bg: 'bg-blue' },
+  'Pool':         { bg: 'bg-green' },
+  'Mano de Cartas': { bg: 'bg-red' },
+  'Libre':        { bg: 'bg-purple' },
+  'Bolirana':     { bg: 'bg-orange' },
 }
 
 function Cuentas({ onNavegar }) {
@@ -34,11 +34,7 @@ function Cuentas({ onNavegar }) {
     setCargando(true)
     const { data, error } = await supabase
       .from('cuentas')
-      .select(`
-        *,
-        mesas(numero, tipo, precio_minuto),
-        clientes(nombre, telefono)
-      `)
+      .select(`*, mesas(numero, tipo, precio_minuto), clientes(nombre, telefono)`)
       .eq('estado', 'abierta')
       .order('hora_apertura', { ascending: true })
     if (!error && data) setCuentas(data)
@@ -57,17 +53,18 @@ function Cuentas({ onNavegar }) {
 
   const cuentasFiltradas = cuentas.filter(c => {
     const nombre = c.clientes?.nombre?.toLowerCase() ?? ''
-    const mesa = String(c.mesas?.numero ?? '')
-    const q = busqueda.toLowerCase()
-    const matchBusqueda = nombre.includes(q) || mesa.includes(q)
-    if (filtro === 'mesas') return matchBusqueda && c.mesa_id !== null
+    const numero = String(c.mesas?.numero ?? '')
+    const tipo   = c.mesas?.tipo?.toLowerCase() ?? ''
+    const q      = busqueda.toLowerCase()
+    const matchBusqueda = nombre.includes(q) || numero.includes(q) || tipo.includes(q)
+    if (filtro === 'mesas')         return matchBusqueda && c.mesa_id !== null
+    if (filtro === 'venta_directa') return matchBusqueda && c.mesa_id === null
     return matchBusqueda
   })
 
   const totalAbierto = cuentas.reduce((acc, c) => {
     const seg = calcularSegundos(c.hora_apertura)
-    const minutos = seg / 60
-    const subtotalMesa = minutos * (c.mesas?.precio_minuto ?? 0)
+    const subtotalMesa = (seg / 60) * (c.mesas?.precio_minuto ?? 0)
     return acc + subtotalMesa + (c.subtotal_productos ?? 0)
   }, 0)
 
@@ -83,7 +80,6 @@ function Cuentas({ onNavegar }) {
 
   return (
     <div className="cu-root">
-      {/* Sidebar */}
       <aside className="cu-sidebar">
         <div className="cu-sidebar-logo">
           <span className="material-icons-outlined cu-sidebar-icon">sports_esports</span>
@@ -123,7 +119,6 @@ function Cuentas({ onNavegar }) {
         </div>
       </aside>
 
-      {/* Main */}
       <main className="cu-main">
         <header className="cu-mobile-header">
           <span className="cu-mobile-script">Sabana</span>
@@ -131,7 +126,6 @@ function Cuentas({ onNavegar }) {
         </header>
 
         <div className="cu-content">
-          {/* Topbar */}
           <div className="cu-topbar">
             <div>
               <h2 className="cu-page-title">Gestión de Cuentas</h2>
@@ -144,9 +138,8 @@ function Cuentas({ onNavegar }) {
             </button>
           </div>
 
-          {/* Stats */}
           <div className="cu-stats">
-            <div className="cu-stat-card cu-stat-gold">
+            <div className="cu-stat-card">
               <div className="cu-stat-accent cu-stat-accent-gold"></div>
               <div className="cu-stat-top">
                 <div>
@@ -160,7 +153,7 @@ function Cuentas({ onNavegar }) {
               </div>
             </div>
 
-            <div className="cu-stat-card cu-stat-blue">
+            <div className="cu-stat-card">
               <div className="cu-stat-accent cu-stat-accent-blue"></div>
               <div className="cu-stat-top">
                 <div>
@@ -177,16 +170,19 @@ function Cuentas({ onNavegar }) {
             </div>
           </div>
 
-          {/* Filtros y búsqueda */}
           <div className="cu-toolbar">
             <div className="cu-filter-tabs">
-              {['todos', 'mesas'].map(f => (
+              {[
+                { key: 'todos',         label: 'Todos' },
+                { key: 'mesas',         label: 'Mesas' },
+                { key: 'venta_directa', label: 'Venta Directa' },
+              ].map(f => (
                 <button
-                  key={f}
-                  className={`cu-tab ${filtro === f ? 'cu-tab-active' : ''}`}
-                  onClick={() => setFiltro(f)}
+                  key={f.key}
+                  className={`cu-tab ${filtro === f.key ? 'cu-tab-active' : ''}`}
+                  onClick={() => setFiltro(f.key)}
                 >
-                  {f === 'todos' ? 'Todos' : 'Mesas'}
+                  {f.label}
                 </button>
               ))}
             </div>
@@ -202,7 +198,6 @@ function Cuentas({ onNavegar }) {
             </div>
           </div>
 
-          {/* Tabla */}
           <div className="cu-table-wrapper">
             <div className="cu-table-scroll">
               <table className="cu-table">
@@ -218,13 +213,9 @@ function Cuentas({ onNavegar }) {
                 </thead>
                 <tbody>
                   {cargando ? (
-                    <tr>
-                      <td colSpan={6} className="cu-empty">Cargando cuentas...</td>
-                    </tr>
+                    <tr><td colSpan={6} className="cu-empty">Cargando cuentas...</td></tr>
                   ) : cuentasFiltradas.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="cu-empty">No hay cuentas abiertas.</td>
-                    </tr>
+                    <tr><td colSpan={6} className="cu-empty">No hay cuentas abiertas.</td></tr>
                   ) : (
                     cuentasFiltradas.map(cuenta => {
                       const seg = calcularSegundos(cuenta.hora_apertura)
@@ -232,17 +223,24 @@ function Cuentas({ onNavegar }) {
                       const subtotalMesa = (seg / 60) * (cuenta.mesas?.precio_minuto ?? 0)
                       const total = subtotalMesa + (cuenta.subtotal_productos ?? 0)
                       const tipo = cuenta.mesas?.tipo ?? ''
-                      const colores = colorTipo[tipo] ?? { bg: 'bg-slate', text: 'text-slate' }
+                      const colores = colorTipo[tipo] ?? { bg: 'bg-slate' }
 
                       return (
                         <tr key={cuenta.id} className="cu-row">
-                          <td className="cu-td-mesa">
-                            <span className={`cu-mesa-num ${colores.bg}`}>
-                              {String(cuenta.mesas?.numero ?? '--').padStart(2, '0')}
-                            </span>
-                            <div>
-                              <p className="cu-mesa-tipo">{tipo || 'Venta Directa'}</p>
-                              <p className="cu-mesa-cliente">{cuenta.clientes?.nombre ?? 'Sin cliente'}</p>
+                          <td>
+                            {/* ← variable cuenta, no c */}
+                            <div className="cu-td-mesa">
+                              {cuenta.mesa_id ? (
+                                <span className={`cu-mesa-num ${colores.bg}`}>
+                                  {String(cuenta.mesas?.numero ?? '--').padStart(2, '0')}
+                                </span>
+                              ) : (
+                                <span className="cu-mesa-num bg-slate cu-mesa-dir">DIR</span>
+                              )}
+                              <div>
+                                <p className="cu-mesa-tipo">{tipo || 'Venta Directa'}</p>
+                                <p className="cu-mesa-cliente">{cuenta.clientes?.nombre ?? 'Sin cliente'}</p>
+                              </div>
                             </div>
                           </td>
                           <td className="cu-td-hora">{horaApertura(cuenta.hora_apertura)}</td>
