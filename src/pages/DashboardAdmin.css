@@ -3,11 +3,13 @@
 
 .da-root {
   display: flex;
-  height: 100vh;
+  width: 100%;        /* ← NUEVO */
+  height: 200vh;
   overflow: hidden;
   background: #F3F4F6;
   font-family: "Lato", sans-serif;
 }
+
 
 /* ── SIDEBAR ── */
 .da-sidebar {
@@ -20,6 +22,7 @@
   flex-shrink: 0;
   box-shadow: 2px 0 8px rgba(0,0,0,0.05);
   z-index: 20;
+  height: 100vh; /* ← NUEVO */
 }
 .da-sidebar-logo {
   height: 6rem;
@@ -58,6 +61,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  flex: 1; /* ← NUEVO: empuja el footer abajo */
 }
 .da-nav-item {
   display: flex;
@@ -124,7 +128,9 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-width: 0; /* ← solo esto, sin width: 0 */
 }
+
 .da-mobile-header {
   display: none;
   height: 4rem;
@@ -142,7 +148,7 @@
 .da-content {
   flex: 1;
   overflow-y: auto;
-  padding: 2rem;
+  padding: 1.5rem;
   scrollbar-width: thin;
   scrollbar-color: #cbd5e1 transparent;
 }
@@ -155,7 +161,7 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
   gap: 1rem;
   flex-wrap: wrap;
 }
@@ -213,13 +219,13 @@
 .da-stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 1.5rem;
-  margin-bottom: 2rem;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
 }
 .da-stat-card {
   background: white;
   border-radius: 0.75rem;
-  padding: 1.5rem;
+  padding: 1.25rem;
   border: 1px solid #e5e7eb;
   box-shadow: 0 1px 3px rgba(0,0,0,0.05);
   position: relative;
@@ -236,7 +242,7 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
 }
 .da-stat-label {
   font-size: 0.7rem;
@@ -247,7 +253,7 @@
 }
 .da-stat-value {
   font-family: "Cinzel", serif;
-  font-size: 1.875rem;
+  font-size: 1.75rem;
   font-weight: 700;
   color: #111827;
   margin-top: 0.25rem;
@@ -292,7 +298,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
   flex-wrap: wrap;
   gap: 1rem;
 }
@@ -340,18 +346,18 @@
   flex-shrink: 0;
 }
 .da-dot-green { background: #10B981; }
-.da-dot-gray { background: #d1d5db; }
+.da-dot-gray  { background: #d1d5db; }
 .da-dot-pulse { animation: pulse-dot 1.5s infinite; }
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  50%       { opacity: 0.4; }
 }
 
-/* Grid mesas */
+/* ── GRID MESAS ── */
 .da-mesas-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
 }
 
 /* Mesa card */
@@ -483,7 +489,7 @@
 .da-overlay-gold { background: #D4AF37; }
 .da-overlay-gold:hover { background: #b8962e; }
 .da-overlay-red  { background: #EF4444; }
-.da-overlay-red:hover  { background: #dc2626; }
+.da-overlay-red:hover { background: #dc2626; }
 
 .da-overlay-btn-wide {
   display: flex;
@@ -503,7 +509,7 @@
 .da-overlay-btn-wide:hover { background: #059669; }
 
 .da-footer-text {
-  margin-top: 2rem;
+  margin-top: 1.5rem;
   text-align: center;
   font-size: 0.875rem;
   color: #9ca3af;
@@ -511,12 +517,29 @@
 }
 
 /* Responsive */
+@media (max-width: 1280px) {
+  .da-mesas-grid { grid-template-columns: repeat(3, 1fr); }
+}
 @media (max-width: 768px) {
   .da-sidebar { display: none; }
   .da-mobile-header { display: flex; }
   .da-stats { grid-template-columns: repeat(2, 1fr); }
+  .da-mesas-grid { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 640px) {
   .da-stats { grid-template-columns: 1fr; }
+  .da-mesas-grid { grid-template-columns: 1fr; }
   .da-content { padding: 1rem; }
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
 }
