@@ -285,7 +285,7 @@ function DashboardAdmin({ onNavegar }) {
           <a href="#" className="da-nav-item">
             <span className="material-icons-outlined">bar_chart</span>Reportes
           </a>
-          <a href="#" className="da-nav-item">
+          <a href="#" className="da-nav-item" onClick={(e) => { e.preventDefault(); onNavegar('clientes') }}>
             <span className="material-icons-outlined">people</span>Clientes
           </a>
         </nav>

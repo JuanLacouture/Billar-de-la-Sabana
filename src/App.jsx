@@ -4,6 +4,8 @@ import Login from './pages/Login'
 import VerificacionTurno from './pages/VerificacionTurno'
 import DashboardAdmin from './pages/DashboardAdmin'
 import Cuentas from './pages/Cuentas'
+import Clientes from './pages/Clientes'   // ← asegúrate que la ruta sea correcta
+
 
 function App() {
   const [session, setSession] = useState(null)
@@ -12,7 +14,7 @@ function App() {
     () => sessionStorage.getItem('turno_iniciado') === 'true'
   )
   const [cargandoSesion, setCargandoSesion] = useState(true)
-  const [pagina, setPagina] = useState('dashboard') // ← navegación interna
+  const [pagina, setPagina] = useState('dashboard')
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -73,9 +75,11 @@ function App() {
   if (!session) return <Login />
   if (rol === 'admin' && !turnoIniciado) return <VerificacionTurno onTurnoIniciado={handleTurnoIniciado} />
   if (rol === 'admin' && turnoIniciado) {
-    if (pagina === 'cuentas') return <Cuentas onNavegar={setPagina} />
+    if (pagina === 'cuentas')   return <Cuentas   onNavegar={setPagina} />
+    if (pagina === 'clientes')  return <Clientes  onNavegar={setPagina} />  // ← NUEVO
     return <DashboardAdmin onNavegar={setPagina} />
   }
+
   return null
 }
 

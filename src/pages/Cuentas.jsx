@@ -102,9 +102,9 @@ function Cuentas({ onNavegar }) {
           <a className="cu-nav-item">
             <span className="material-icons-outlined">bar_chart</span>Reportes
           </a>
-          <a className="cu-nav-item">
+          <a className="cu-nav-item" onClick={() => onNavegar('clientes')}>
             <span className="material-icons-outlined">people</span>Clientes
-          </a>
+        </a>
         </nav>
 
         <div className="cu-sidebar-footer">
