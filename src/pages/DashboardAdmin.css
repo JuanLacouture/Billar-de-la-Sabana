@@ -722,3 +722,11 @@
 .da-modal-btn-confirm:hover { background: #059669; }
 .da-modal-btn-confirm:disabled { opacity: 0.6; cursor: not-allowed; }
 .da-modal-btn-confirm .material-icons-outlined { font-size: 1rem !important; }
+
+.da-mesa-cliente {
+  font-size: 0.7rem;
+  color: #9ca3af;
+  margin-top: 0.25rem;
+  font-style: italic;
+  letter-spacing: 0.02em;
+}

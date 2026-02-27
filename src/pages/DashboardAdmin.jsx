@@ -177,14 +177,16 @@ function DashboardAdmin() {
   const [modalMesa, setModalMesa] = useState(null) // ← mesa seleccionada para el modal
 
   const cargarMesas = async () => {
-    setCargando(true)
-    const { data, error } = await supabase
-      .from('mesas')
-      .select('*')
-      .order('numero', { ascending: true })
-    if (!error && data) setMesas(data)
-    setCargando(false)
-  }
+  setCargando(true)
+  const { data, error } = await supabase
+    .from('mesas')
+    .select('*, cuentas(cliente_id, estado, clientes(nombre))')
+    .eq('cuentas.estado', 'abierta')  // ← solo la cuenta activa
+    .order('numero', { ascending: true })
+  if (!error && data) setMesas(data)
+  setCargando(false)
+}
+
 
   // ← Abre el modal con la mesa elegida
   const abrirModal = (mesa) => setModalMesa(mesa)
@@ -346,7 +348,7 @@ function DashboardAdmin() {
                 <span className="material-icons-outlined">refresh</span> Actualizar
               </button>
               <button className="da-btn-primary">
-                <span className="material-icons-outlined">add</span> Nueva Mesa
+                <span className="material-icons-outlined">add</span> Nueva Cuenta
               </button>
             </div>
           </div>
@@ -450,12 +452,19 @@ function DashboardAdmin() {
                       </div>
 
                       {ocupada ? (
-                        <div className="da-mesa-tiempo">
-                          <h4 className="da-mesa-reloj">{tiempoStr}</h4>
-                          <p className="da-mesa-tiempo-label">Tiempo transcurrido</p>
-                          {mesa.cliente_nombre && <p className="da-mesa-cliente">👤 {mesa.cliente_nombre}</p>}
-                        </div>
-                      ) : (
+  <div className="da-mesa-tiempo">
+    <h4 className="da-mesa-reloj">{tiempoStr}</h4>
+    <p className="da-mesa-tiempo-label">Tiempo transcurrido</p>
+    
+    {/* ← nombre del cliente desde la cuenta abierta */}
+    {mesa.cuentas?.[0]?.clientes?.nombre && (
+      <p className="da-mesa-cliente">
+        👤 {mesa.cuentas[0].clientes.nombre}
+      </p>
+    )}
+  </div>
+) : (
+
                         <div className="da-mesa-vacia">
                           <span className="material-icons-outlined da-mesa-play-icon">play_circle_outline</span>
                           <p>Iniciar Mesa</p>
