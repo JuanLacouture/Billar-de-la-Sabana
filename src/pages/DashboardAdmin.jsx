@@ -29,9 +29,7 @@ function calcularValor(horaInicio, precioMinuto) {
   const minutos = seg / 60
   const total = minutos * precioMinuto
   return new Intl.NumberFormat('es-CO', {
-    style: 'currency',
-    currency: 'COP',
-    maximumFractionDigits: 0,
+    style: 'currency', currency: 'COP', maximumFractionDigits: 0,
   }).format(total)
 }
 
@@ -72,7 +70,6 @@ function ModalIniciarMesa({ mesa, onConfirmar, onCancelar }) {
   return (
     <div className="da-modal-backdrop" onClick={onCancelar}>
       <div className="da-modal" onClick={e => e.stopPropagation()}>
-
         <div className="da-modal-header">
           <div className="da-modal-title-row">
             <span className="material-icons-outlined da-modal-icon">sports_bar</span>
@@ -144,7 +141,6 @@ function ModalIniciarMesa({ mesa, onConfirmar, onCancelar }) {
             {guardando ? 'Iniciando...' : 'Confirmar inicio'}
           </button>
         </div>
-
       </div>
     </div>
   )
@@ -152,14 +148,13 @@ function ModalIniciarMesa({ mesa, onConfirmar, onCancelar }) {
 
 // ── Dashboard ────────────────────────────────────────────────────────
 function DashboardAdmin({ onNavegar }) {
-  const [mesas, setMesas]         = useState([])
-  const [filtro, setFiltro]       = useState('Todo')
-  const [cargando, setCargando]   = useState(true)
-  const [, setTick]               = useState(0)
-  const [modalMesa, setModalMesa] = useState(null)
-
-  // ← Estado para navegar a ConsumoMesa
+  const [mesas, setMesas]               = useState([])
+  const [filtro, setFiltro]             = useState('Todo')
+  const [cargando, setCargando]         = useState(true)
+  const [, setTick]                     = useState(0)
+  const [modalMesa, setModalMesa]       = useState(null)
   const [cuentaConsumo, setCuentaConsumo] = useState(null)
+  const [liquidarDirecto, setLiquidarDirecto] = useState(false)  // ← nuevo
 
   const cargarMesas = async () => {
     setCargando(true)
@@ -168,7 +163,7 @@ function DashboardAdmin({ onNavegar }) {
       .select(`
         *,
         cuentas(
-          id, cliente_id, estado, hora_apertura,
+          id, mesa_id, cliente_id, estado, hora_apertura,
           subtotal_productos,
           clientes(nombre)
         )
@@ -212,20 +207,36 @@ function DashboardAdmin({ onNavegar }) {
     cargarMesas()
   }
 
-  // ← Abre ConsumoMesa pasando la cuenta abierta de esa mesa
-  const abrirConsumo = (mesa) => {
+  // ── Construye el objeto cuenta con mesa_id garantizado ──
+  const buildCuenta = (mesa) => {
     const cuentaAbierta = mesa.cuentas?.find(c => c.estado === 'abierta')
-    if (!cuentaAbierta) return
-
-    // Armamos el objeto cuenta con info de la mesa incluida
-    setCuentaConsumo({
+    if (!cuentaAbierta) return null
+    return {
       ...cuentaAbierta,
+      mesa_id: mesa.id,
       mesas: {
+        id:            mesa.id,
         numero:        mesa.numero,
         tipo:          mesa.tipo,
         precio_minuto: mesa.precio_minuto,
       },
-    })
+    }
+  }
+
+  // 🟡 Botón consumo → entra a ConsumoMesa normal
+  const abrirConsumo = (mesa) => {
+    const cuenta = buildCuenta(mesa)
+    if (!cuenta) return
+    setLiquidarDirecto(false)
+    setCuentaConsumo(cuenta)
+  }
+
+  // 🔴 Botón stop → entra directo a LiquidarCuenta
+  const abrirLiquidar = (mesa) => {
+    const cuenta = buildCuenta(mesa)
+    if (!cuenta) return
+    setLiquidarDirecto(true)
+    setCuentaConsumo(cuenta)
   }
 
   useEffect(() => {
@@ -238,7 +249,7 @@ function DashboardAdmin({ onNavegar }) {
         .select(`
           *,
           cuentas(
-            id, cliente_id, estado, hora_apertura,
+            id, mesa_id, cliente_id, estado, hora_apertura,
             subtotal_productos,
             clientes(nombre)
           )
@@ -269,14 +280,16 @@ function DashboardAdmin({ onNavegar }) {
     return () => clearInterval(intervalo)
   }, [])
 
-  // ← Si hay cuenta seleccionada, renderiza ConsumoMesa
+  // ← Renderiza ConsumoMesa pasando el flag irALiquidar
   if (cuentaConsumo) {
     return (
       <ConsumoMesa
         cuenta={cuentaConsumo}
+        irALiquidar={liquidarDirecto}
         onVolver={() => {
           setCuentaConsumo(null)
-          cargarMesas()        // recarga mesas al volver
+          setLiquidarDirecto(false)
+          cargarMesas()
         }}
       />
     )
@@ -466,9 +479,9 @@ function DashboardAdmin({ onNavegar }) {
               </p>
             ) : (
               mesasFiltradas.map(mesa => {
-                const color    = colorTipo[mesa.tipo] || 'gray'
-                const ocupada  = mesa.en_uso
-                const segundos = ocupada ? calcularSegundos(mesa.hora_inicio) : 0
+                const color     = colorTipo[mesa.tipo] || 'gray'
+                const ocupada   = mesa.en_uso
+                const segundos  = ocupada ? calcularSegundos(mesa.hora_inicio) : 0
                 const tiempoStr = ocupada ? segundosAFormato(segundos) : null
                 const valorStr  = ocupada ? calcularValor(mesa.hora_inicio, mesa.precio_minuto) : null
                 const nombre    = clienteNombre(mesa)
@@ -509,7 +522,7 @@ function DashboardAdmin({ onNavegar }) {
                     <div className="da-mesa-overlay">
                       {ocupada ? (
                         <>
-                          {/* ← onClick conectado a abrirConsumo */}
+                          {/* 🟡 Consumo normal */}
                           <button
                             className="da-overlay-btn da-overlay-gold"
                             title="Agregar consumo"
@@ -517,7 +530,12 @@ function DashboardAdmin({ onNavegar }) {
                           >
                             <span className="material-icons-outlined">local_bar</span>
                           </button>
-                          <button className="da-overlay-btn da-overlay-red" title="Cerrar mesa">
+                          {/* 🔴 Directo a liquidar */}
+                          <button
+                            className="da-overlay-btn da-overlay-red"
+                            title="Liquidar cuenta"
+                            onClick={() => abrirLiquidar(mesa)}
+                          >
                             <span className="material-icons-outlined">stop_circle</span>
                           </button>
                         </>

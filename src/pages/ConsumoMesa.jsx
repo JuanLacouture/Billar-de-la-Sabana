@@ -31,7 +31,7 @@ const EMOJIS = {
   'Deportivos':    '🎱',
 }
 
-function ConsumoMesa({ cuenta: cuentaInicial, onVolver }) {
+function ConsumoMesa({ cuenta: cuentaInicial, onVolver, irALiquidar = false }) {
   // ← Recargamos la cuenta completa con mesa_id explícito
   const [cuenta, setCuenta] = useState(cuentaInicial)
   const [productos, setProductos]           = useState([])
@@ -45,7 +45,7 @@ function ConsumoMesa({ cuenta: cuentaInicial, onVolver }) {
   const [errorMsg, setErrorMsg]             = useState(null)
   const [subtotalGuardado, setSubtotalGuardado] = useState(cuentaInicial.subtotal_productos ?? 0)
   const [confirmModal, setConfirmModal]     = useState(null)
-  const [mostrarLiquidar, setMostrarLiquidar] = useState(false)
+  const [mostrarLiquidar, setMostrarLiquidar] = useState(irALiquidar)
   const [segCongelado, setSegCongelado]     = useState(null)
 
   // ── Recargar cuenta completa con mesa_id ──
