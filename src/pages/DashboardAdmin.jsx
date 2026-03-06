@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
+import ConsumoMesa from './ConsumoMesa'
 import './DashboardAdmin.css'
 
 const colorTipo = {
@@ -34,7 +35,7 @@ function calcularValor(horaInicio, precioMinuto) {
   }).format(total)
 }
 
-// ── Modal ────────────────────────────────────────────────────────────
+// ── Modal Iniciar Mesa ───────────────────────────────────────────────
 function ModalIniciarMesa({ mesa, onConfirmar, onCancelar }) {
   const [clientes, setClientes] = useState([])
   const [busqueda, setBusqueda] = useState('')
@@ -151,27 +152,37 @@ function ModalIniciarMesa({ mesa, onConfirmar, onCancelar }) {
 
 // ── Dashboard ────────────────────────────────────────────────────────
 function DashboardAdmin({ onNavegar }) {
-  const [mesas, setMesas] = useState([])
-  const [filtro, setFiltro] = useState('Todo')
-  const [cargando, setCargando] = useState(true)
-  const [, setTick] = useState(0)
+  const [mesas, setMesas]         = useState([])
+  const [filtro, setFiltro]       = useState('Todo')
+  const [cargando, setCargando]   = useState(true)
+  const [, setTick]               = useState(0)
   const [modalMesa, setModalMesa] = useState(null)
+
+  // ← Estado para navegar a ConsumoMesa
+  const [cuentaConsumo, setCuentaConsumo] = useState(null)
 
   const cargarMesas = async () => {
     setCargando(true)
     const { data, error } = await supabase
       .from('mesas')
-      .select('*, cuentas(cliente_id, estado, clientes(nombre))')
+      .select(`
+        *,
+        cuentas(
+          id, cliente_id, estado, hora_apertura,
+          subtotal_productos,
+          clientes(nombre)
+        )
+      `)
       .order('numero', { ascending: true })
     if (!error && data) setMesas(data)
     setCargando(false)
   }
 
-  const abrirModal = (mesa) => setModalMesa(mesa)
+  const abrirModal  = (mesa) => setModalMesa(mesa)
   const cerrarModal = () => setModalMesa(null)
 
   const confirmarInicio = async (mesa, cliente) => {
-    const ahora = new Date()
+    const ahora    = new Date()
     const offsetMs = ahora.getTimezoneOffset() * 60000
     const horaLocal = new Date(ahora.getTime() - offsetMs).toISOString().slice(0, -1) + '-05:00'
 
@@ -183,10 +194,7 @@ function DashboardAdmin({ onNavegar }) {
       .update({ en_uso: true, hora_inicio: horaLocal })
       .eq('id', mesa.id)
 
-    if (errorMesa) {
-      console.error('Error al iniciar mesa:', errorMesa)
-      return
-    }
+    if (errorMesa) { console.error('Error al iniciar mesa:', errorMesa); return }
 
     const { error: errorCuenta } = await supabase
       .from('cuentas')
@@ -204,6 +212,22 @@ function DashboardAdmin({ onNavegar }) {
     cargarMesas()
   }
 
+  // ← Abre ConsumoMesa pasando la cuenta abierta de esa mesa
+  const abrirConsumo = (mesa) => {
+    const cuentaAbierta = mesa.cuentas?.find(c => c.estado === 'abierta')
+    if (!cuentaAbierta) return
+
+    // Armamos el objeto cuenta con info de la mesa incluida
+    setCuentaConsumo({
+      ...cuentaAbierta,
+      mesas: {
+        numero:        mesa.numero,
+        tipo:          mesa.tipo,
+        precio_minuto: mesa.precio_minuto,
+      },
+    })
+  }
+
   useEffect(() => {
     let activo = true
     setCargando(true)
@@ -211,7 +235,14 @@ function DashboardAdmin({ onNavegar }) {
     supabase.auth.getSession().then(() => {
       supabase
         .from('mesas')
-        .select('*, cuentas(cliente_id, estado, clientes(nombre))')
+        .select(`
+          *,
+          cuentas(
+            id, cliente_id, estado, hora_apertura,
+            subtotal_productos,
+            clientes(nombre)
+          )
+        `)
         .order('numero', { ascending: true })
         .then(({ data, error }) => {
           if (!error && activo && data) setMesas(data)
@@ -223,7 +254,7 @@ function DashboardAdmin({ onNavegar }) {
       .channel('mesas-cambios')
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'mesas' },
-        () => { if (activo) cargarMesas() } // ← recarga completa con el join al detectar cambio
+        () => { if (activo) cargarMesas() }
       )
       .subscribe()
 
@@ -238,15 +269,25 @@ function DashboardAdmin({ onNavegar }) {
     return () => clearInterval(intervalo)
   }, [])
 
-  const tiposFiltro = ['Todo', '3 Bandas', 'Pool', 'Libre', 'Bolirana', 'Mano de Cartas']
-  const mesasFiltradas = filtro === 'Todo' ? mesas : mesas.filter(m => m.tipo === filtro)
-  const mesasActivas = mesas.filter(m => m.en_uso).length
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
+  // ← Si hay cuenta seleccionada, renderiza ConsumoMesa
+  if (cuentaConsumo) {
+    return (
+      <ConsumoMesa
+        cuenta={cuentaConsumo}
+        onVolver={() => {
+          setCuentaConsumo(null)
+          cargarMesas()        // recarga mesas al volver
+        }}
+      />
+    )
   }
 
-  // Nombre del cliente de la cuenta abierta
+  const tiposFiltro    = ['Todo', '3 Bandas', 'Pool', 'Libre', 'Bolirana', 'Mano de Cartas']
+  const mesasFiltradas = filtro === 'Todo' ? mesas : mesas.filter(m => m.tipo === filtro)
+  const mesasActivas   = mesas.filter(m => m.en_uso).length
+
+  const handleLogout = async () => { await supabase.auth.signOut() }
+
   const clienteNombre = (mesa) => {
     const cuentaAbierta = mesa.cuentas?.find(c => c.estado === 'abierta')
     return cuentaAbierta?.clientes?.nombre ?? null
@@ -263,6 +304,7 @@ function DashboardAdmin({ onNavegar }) {
         />
       )}
 
+      {/* Sidebar */}
       <aside className="da-sidebar">
         <div className="da-sidebar-logo">
           <span className="material-icons-outlined da-sidebar-icon">sports_esports</span>
@@ -279,13 +321,13 @@ function DashboardAdmin({ onNavegar }) {
           <a href="#" className="da-nav-item">
             <span className="material-icons-outlined">inventory_2</span>Inventario
           </a>
-          <a href="#" className="da-nav-item" onClick={(e) => { e.preventDefault(); onNavegar('cuentas') }}>
+          <a href="#" className="da-nav-item" onClick={e => { e.preventDefault(); onNavegar('cuentas') }}>
             <span className="material-icons-outlined">receipt_long</span>Cuentas
           </a>
           <a href="#" className="da-nav-item">
             <span className="material-icons-outlined">bar_chart</span>Reportes
           </a>
-          <a href="#" className="da-nav-item" onClick={(e) => { e.preventDefault(); onNavegar('clientes') }}>
+          <a href="#" className="da-nav-item" onClick={e => { e.preventDefault(); onNavegar('clientes') }}>
             <span className="material-icons-outlined">people</span>Clientes
           </a>
         </nav>
@@ -302,6 +344,7 @@ function DashboardAdmin({ onNavegar }) {
         </div>
       </aside>
 
+      {/* Main */}
       <main className="da-main">
         <header className="da-mobile-header">
           <span className="da-mobile-script">Sabana</span>
@@ -324,20 +367,26 @@ function DashboardAdmin({ onNavegar }) {
             </div>
           </div>
 
+          {/* Stats */}
           <div className="da-stats">
             <div className="da-stat-card">
               <div className="da-stat-bar" style={{ background: '#3B82F6' }}></div>
               <div className="da-stat-top">
                 <div>
                   <p className="da-stat-label">Mesas Activas</p>
-                  <h3 className="da-stat-value">{mesasActivas}<span className="da-stat-total">/{mesas.length}</span></h3>
+                  <h3 className="da-stat-value">
+                    {mesasActivas}<span className="da-stat-total">/{mesas.length}</span>
+                  </h3>
                 </div>
                 <div className="da-stat-icon" style={{ background: '#EFF6FF', color: '#3B82F6' }}>
                   <span className="material-icons-outlined">table_restaurant</span>
                 </div>
               </div>
               <div className="da-progress-bar">
-                <div style={{ width: mesas.length ? `${(mesasActivas / mesas.length) * 100}%` : '0%', background: '#3B82F6' }}></div>
+                <div style={{
+                  width: mesas.length ? `${(mesasActivas / mesas.length) * 100}%` : '0%',
+                  background: '#3B82F6'
+                }}></div>
               </div>
             </div>
 
@@ -352,7 +401,9 @@ function DashboardAdmin({ onNavegar }) {
                   <span className="material-icons-outlined">payments</span>
                 </div>
               </div>
-              <p className="da-stat-trend"><span className="material-icons-outlined">trending_up</span> +12% vs ayer</p>
+              <p className="da-stat-trend">
+                <span className="material-icons-outlined">trending_up</span> +12% vs ayer
+              </p>
             </div>
 
             <div className="da-stat-card">
@@ -384,10 +435,15 @@ function DashboardAdmin({ onNavegar }) {
             </div>
           </div>
 
+          {/* Filtros */}
           <div className="da-filters">
             <div className="da-filter-pills">
               {tiposFiltro.map(f => (
-                <button key={f} className={`da-pill ${filtro === f ? 'da-pill-active' : ''}`} onClick={() => setFiltro(f)}>
+                <button
+                  key={f}
+                  className={`da-pill ${filtro === f ? 'da-pill-active' : ''}`}
+                  onClick={() => setFiltro(f)}
+                >
                   {f}
                 </button>
               ))}
@@ -398,19 +454,24 @@ function DashboardAdmin({ onNavegar }) {
             </div>
           </div>
 
+          {/* Grid mesas */}
           <div className="da-mesas-grid">
             {cargando ? (
-              <p style={{ color: '#9ca3af', gridColumn: '1/-1', textAlign: 'center', padding: '2rem' }}>Cargando mesas...</p>
+              <p style={{ color: '#9ca3af', gridColumn: '1/-1', textAlign: 'center', padding: '2rem' }}>
+                Cargando mesas...
+              </p>
             ) : mesasFiltradas.length === 0 ? (
-              <p style={{ color: '#9ca3af', gridColumn: '1/-1', textAlign: 'center', padding: '2rem' }}>No hay mesas para mostrar.</p>
+              <p style={{ color: '#9ca3af', gridColumn: '1/-1', textAlign: 'center', padding: '2rem' }}>
+                No hay mesas para mostrar.
+              </p>
             ) : (
               mesasFiltradas.map(mesa => {
-                const color = colorTipo[mesa.tipo] || 'gray'
-                const ocupada = mesa.en_uso
+                const color    = colorTipo[mesa.tipo] || 'gray'
+                const ocupada  = mesa.en_uso
                 const segundos = ocupada ? calcularSegundos(mesa.hora_inicio) : 0
                 const tiempoStr = ocupada ? segundosAFormato(segundos) : null
-                const valorStr = ocupada ? calcularValor(mesa.hora_inicio, mesa.precio_minuto) : null
-                const nombre = clienteNombre(mesa)
+                const valorStr  = ocupada ? calcularValor(mesa.hora_inicio, mesa.precio_minuto) : null
+                const nombre    = clienteNombre(mesa)
 
                 return (
                   <div key={mesa.id} className={`da-mesa-card da-mesa-${ocupada ? color : 'gray'}`}>
@@ -427,9 +488,7 @@ function DashboardAdmin({ onNavegar }) {
                         <div className="da-mesa-tiempo">
                           <h4 className="da-mesa-reloj">{tiempoStr}</h4>
                           <p className="da-mesa-tiempo-label">Tiempo transcurrido</p>
-                          {nombre && (
-                            <p className="da-mesa-cliente">👤 {nombre}</p>
-                          )}
+                          {nombre && <p className="da-mesa-cliente">👤 {nombre}</p>}
                         </div>
                       ) : (
                         <div className="da-mesa-vacia">
@@ -450,7 +509,12 @@ function DashboardAdmin({ onNavegar }) {
                     <div className="da-mesa-overlay">
                       {ocupada ? (
                         <>
-                          <button className="da-overlay-btn da-overlay-gold" title="Agregar consumo">
+                          {/* ← onClick conectado a abrirConsumo */}
+                          <button
+                            className="da-overlay-btn da-overlay-gold"
+                            title="Agregar consumo"
+                            onClick={() => abrirConsumo(mesa)}
+                          >
                             <span className="material-icons-outlined">local_bar</span>
                           </button>
                           <button className="da-overlay-btn da-overlay-red" title="Cerrar mesa">
@@ -458,7 +522,10 @@ function DashboardAdmin({ onNavegar }) {
                           </button>
                         </>
                       ) : (
-                        <button className="da-overlay-btn-wide da-overlay-green" onClick={() => abrirModal(mesa)}>
+                        <button
+                          className="da-overlay-btn-wide da-overlay-green"
+                          onClick={() => abrirModal(mesa)}
+                        >
                           <span className="material-icons-outlined">play_arrow</span> Iniciar
                         </button>
                       )}
@@ -469,7 +536,9 @@ function DashboardAdmin({ onNavegar }) {
             )}
           </div>
 
-          <div className="da-footer-text">© 2026 Club de Billar Sabana. Panel de Administración v2.0</div>
+          <div className="da-footer-text">
+            © 2026 Club de Billar Sabana. Panel de Administración v2.0
+          </div>
         </div>
       </main>
     </div>
