@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
 import './ConsumoMesa.css'
+import LiquidarCuenta from './LiquidarCuenta'
 
 function segundosAFormato(seg) {
   const h = Math.floor(seg / 3600)
@@ -30,7 +31,9 @@ const EMOJIS = {
   'Deportivos':    '🎱',
 }
 
-function ConsumoMesa({ cuenta, onVolver }) {
+function ConsumoMesa({ cuenta: cuentaInicial, onVolver }) {
+  // ← Recargamos la cuenta completa con mesa_id explícito
+  const [cuenta, setCuenta] = useState(cuentaInicial)
   const [productos, setProductos]           = useState([])
   const [carrito, setCarrito]               = useState([])
   const [itemsGuardados, setItemsGuardados] = useState([])
@@ -40,8 +43,25 @@ function ConsumoMesa({ cuenta, onVolver }) {
   const [guardando, setGuardando]           = useState(false)
   const [guardadoOk, setGuardadoOk]         = useState(false)
   const [errorMsg, setErrorMsg]             = useState(null)
-  const [subtotalGuardado, setSubtotalGuardado] = useState(cuenta.subtotal_productos ?? 0)
+  const [subtotalGuardado, setSubtotalGuardado] = useState(cuentaInicial.subtotal_productos ?? 0)
   const [confirmModal, setConfirmModal]     = useState(null)
+  const [mostrarLiquidar, setMostrarLiquidar] = useState(false)
+  const [segCongelado, setSegCongelado]     = useState(null)
+
+  // ── Recargar cuenta completa con mesa_id ──
+  useEffect(() => {
+    const cargarCuenta = async () => {
+      const { data, error } = await supabase
+        .from('cuentas')
+        .select('*, mesas(*), clientes(*)')
+        .eq('id', cuentaInicial.id)
+        .single()
+      if (!error && data) {
+        setCuenta(data)
+      }
+    }
+    cargarCuenta()
+  }, [cuentaInicial.id])
 
   useEffect(() => {
     const iv = setInterval(() => setTick(t => t + 1), 1000)
@@ -61,7 +81,7 @@ function ConsumoMesa({ cuenta, onVolver }) {
 
   useEffect(() => {
     recargarItems()
-  }, [cuenta.id])
+  }, [cuentaInicial.id])
 
   const seg          = calcularSegundos(cuenta.hora_apertura)
   const tiempoStr    = segundosAFormato(seg)
@@ -104,7 +124,7 @@ function ConsumoMesa({ cuenta, onVolver }) {
     const { data } = await supabase
       .from('items_cuenta')
       .select('*, productos(nombre, precio)')
-      .eq('cuenta_id', cuenta.id)
+      .eq('cuenta_id', cuentaInicial.id)
       .order('id', { ascending: true })
     if (data) setItemsGuardados(data)
   }
@@ -186,58 +206,49 @@ function ConsumoMesa({ cuenta, onVolver }) {
   }
 
   const handleEliminarConfirmado = async () => {
-  const { ids, cantidadTotal, cantidadEliminar, subtotalItem } = confirmModal
-  const precioUnit = subtotalItem / cantidadTotal
-  setConfirmModal(null)
+    const { ids, cantidadTotal, cantidadEliminar, subtotalItem } = confirmModal
+    const precioUnit = subtotalItem / cantidadTotal
+    setConfirmModal(null)
 
-  if (cantidadEliminar === cantidadTotal) {
-    // Borrar todas las filas del producto
-    const { error } = await supabase
-      .from('items_cuenta')
-      .delete()
-      .in('id', ids)
-    if (error) { setErrorMsg('No se pudo eliminar.'); return }
+    if (cantidadEliminar === cantidadTotal) {
+      const { error } = await supabase
+        .from('items_cuenta')
+        .delete()
+        .in('id', ids)
+      if (error) { setErrorMsg('No se pudo eliminar.'); return }
+    } else {
+      const { data: filas } = await supabase
+        .from('items_cuenta')
+        .select('id, cantidad')
+        .in('id', ids)
+        .order('id', { ascending: true })
 
-  } else {
-    // Necesitamos restar cantidadEliminar del total
-    // Recargamos los registros reales para saber cuánto tiene cada fila
-    const { data: filas } = await supabase
-      .from('items_cuenta')
-      .select('id, cantidad')
-      .in('id', ids)
-      .order('id', { ascending: true })
-
-    let restante = cantidadEliminar
-
-    for (const fila of filas) {
-      if (restante <= 0) break
-
-      if (fila.cantidad <= restante) {
-        // Eliminar esta fila completa
-        await supabase.from('items_cuenta').delete().eq('id', fila.id)
-        restante -= fila.cantidad
-      } else {
-        // Reducir la cantidad de esta fila
-        await supabase
-          .from('items_cuenta')
-          .update({ cantidad: fila.cantidad - restante })
-          .eq('id', fila.id)
-        restante = 0
+      let restante = cantidadEliminar
+      for (const fila of filas) {
+        if (restante <= 0) break
+        if (fila.cantidad <= restante) {
+          await supabase.from('items_cuenta').delete().eq('id', fila.id)
+          restante -= fila.cantidad
+        } else {
+          await supabase
+            .from('items_cuenta')
+            .update({ cantidad: fila.cantidad - restante })
+            .eq('id', fila.id)
+          restante = 0
+        }
       }
     }
+
+    const subtotalARestar = precioUnit * cantidadEliminar
+    const nuevoSubtotal = Math.max(0, subtotalGuardado - subtotalARestar)
+    await supabase
+      .from('cuentas')
+      .update({ subtotal_productos: nuevoSubtotal })
+      .eq('id', cuenta.id)
+
+    setSubtotalGuardado(nuevoSubtotal)
+    await recargarItems()
   }
-
-  const subtotalARestar = precioUnit * cantidadEliminar
-  const nuevoSubtotal = Math.max(0, subtotalGuardado - subtotalARestar)
-  await supabase
-    .from('cuentas')
-    .update({ subtotal_productos: nuevoSubtotal })
-    .eq('id', cuenta.id)
-
-  setSubtotalGuardado(nuevoSubtotal)
-  await recargarItems()
-}
-
 
   const horaInicio = cuenta.hora_apertura
     ? new Date(cuenta.hora_apertura).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
@@ -248,10 +259,26 @@ function ConsumoMesa({ cuenta, onVolver }) {
     return item ? item.cantidad : 0
   }
 
+  const handleAbrirLiquidar = () => {
+    setSegCongelado(calcularSegundos(cuenta.hora_apertura))
+    setMostrarLiquidar(true)
+  }
+
+  if (mostrarLiquidar) {
+    return (
+      <LiquidarCuenta
+        cuenta={cuenta}           // ← ya tiene mesa_id cargado
+        itemsAgrupados={itemsAgrupados}
+        segTranscurridos={segCongelado}
+        onVolver={() => setMostrarLiquidar(false)}
+        onLiquidado={onVolver}
+      />
+    )
+  }
+
   return (
     <div className="cm-root">
 
-      {/* ── Modal confirmación eliminar ── */}
       {confirmModal && (
         <div className="cm-modal-overlay" onClick={() => setConfirmModal(null)}>
           <div className="cm-modal" onClick={e => e.stopPropagation()}>
@@ -319,9 +346,7 @@ function ConsumoMesa({ cuenta, onVolver }) {
       </header>
 
       <main className="cm-main">
-
         <div className="cm-left">
-
           <div className="cm-mesa-info">
             <div className="cm-mesa-icon-wrap">
               <span className="material-icons-outlined cm-mesa-icon">sports_bar</span>
@@ -430,7 +455,6 @@ function ConsumoMesa({ cuenta, onVolver }) {
         </div>
 
         <aside className="cm-aside">
-
           <div className="cm-aside-header">
             <div className="cm-aside-title-row">
               <h3 className="cm-aside-title">
@@ -448,7 +472,6 @@ function ConsumoMesa({ cuenta, onVolver }) {
           </div>
 
           <div className="cm-aside-items">
-
             <div className="cm-item-mesa">
               <div className="cm-item-mesa-left">
                 <div className="cm-item-mesa-icon">
@@ -495,9 +518,7 @@ function ConsumoMesa({ cuenta, onVolver }) {
             ))}
 
             {itemsAgrupados.length > 0 && carrito.length > 0 && (
-              <div className="cm-separador-carrito">
-                <span>Nuevos</span>
-              </div>
+              <div className="cm-separador-carrito"><span>Nuevos</span></div>
             )}
 
             {carrito.map(item => (
@@ -578,12 +599,11 @@ function ConsumoMesa({ cuenta, onVolver }) {
               {guardando ? 'Guardando...' : `Guardar Consumo (${carrito.length})`}
             </button>
 
-            <button className="cm-btn-liquidar" onClick={onVolver}>
+            <button className="cm-btn-liquidar" onClick={handleAbrirLiquidar}>
               <span className="material-icons-outlined">payments</span>
               Liquidar Cuenta
             </button>
           </div>
-
         </aside>
       </main>
     </div>
