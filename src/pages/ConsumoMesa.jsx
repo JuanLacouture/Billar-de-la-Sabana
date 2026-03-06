@@ -32,7 +32,6 @@ const EMOJIS = {
 }
 
 function ConsumoMesa({ cuenta: cuentaInicial, onVolver, irALiquidar = false }) {
-  // ← Recargamos la cuenta completa con mesa_id explícito
   const [cuenta, setCuenta] = useState(cuentaInicial)
   const [productos, setProductos]           = useState([])
   const [carrito, setCarrito]               = useState([])
@@ -46,7 +45,7 @@ function ConsumoMesa({ cuenta: cuentaInicial, onVolver, irALiquidar = false }) {
   const [subtotalGuardado, setSubtotalGuardado] = useState(cuentaInicial.subtotal_productos ?? 0)
   const [confirmModal, setConfirmModal]     = useState(null)
   const [mostrarLiquidar, setMostrarLiquidar] = useState(irALiquidar)
-  const [segCongelado, setSegCongelado]     = useState(null)
+  const [segCongelado, setSegCongelado]     = useState(irALiquidar ? calcularSegundos(cuentaInicial.hora_apertura) : null)
 
   // ── Recargar cuenta completa con mesa_id ──
   useEffect(() => {
@@ -58,6 +57,8 @@ function ConsumoMesa({ cuenta: cuentaInicial, onVolver, irALiquidar = false }) {
         .single()
       if (!error && data) {
         setCuenta(data)
+        // Sincronizar subtotalGuardado si la BD tiene un valor más actualizado
+        setSubtotalGuardado(data.subtotal_productos ?? 0)
       }
     }
     cargarCuenta()
@@ -193,7 +194,10 @@ function ConsumoMesa({ cuenta: cuentaInicial, onVolver, irALiquidar = false }) {
       return
     }
 
+    // ── FIX: sincronizar cuenta.subtotal_productos en el estado local ──
     setSubtotalGuardado(nuevoSubtotal)
+    setCuenta(prev => ({ ...prev, subtotal_productos: nuevoSubtotal }))
+
     setCarrito([])
     await recargarItems()
     setGuardadoOk(true)
@@ -240,13 +244,17 @@ function ConsumoMesa({ cuenta: cuentaInicial, onVolver, irALiquidar = false }) {
     }
 
     const subtotalARestar = precioUnit * cantidadEliminar
-    const nuevoSubtotal = Math.max(0, subtotalGuardado - subtotalARestar)
+    const nuevoSubtotal   = Math.max(0, subtotalGuardado - subtotalARestar)
+
     await supabase
       .from('cuentas')
       .update({ subtotal_productos: nuevoSubtotal })
       .eq('id', cuenta.id)
 
+    // ── FIX: sincronizar también al eliminar ──
     setSubtotalGuardado(nuevoSubtotal)
+    setCuenta(prev => ({ ...prev, subtotal_productos: nuevoSubtotal }))
+
     await recargarItems()
   }
 
@@ -259,15 +267,18 @@ function ConsumoMesa({ cuenta: cuentaInicial, onVolver, irALiquidar = false }) {
     return item ? item.cantidad : 0
   }
 
+  // ── FIX: congelar seg Y sincronizar subtotal_productos en cuenta ──
   const handleAbrirLiquidar = () => {
-    setSegCongelado(calcularSegundos(cuenta.hora_apertura))
+    const segActual = calcularSegundos(cuenta.hora_apertura)
+    setSegCongelado(segActual)
+    setCuenta(prev => ({ ...prev, subtotal_productos: subtotalGuardado }))
     setMostrarLiquidar(true)
   }
 
   if (mostrarLiquidar) {
     return (
       <LiquidarCuenta
-        cuenta={cuenta}           // ← ya tiene mesa_id cargado
+        cuenta={cuenta}
         itemsAgrupados={itemsAgrupados}
         segTranscurridos={segCongelado}
         onVolver={() => setMostrarLiquidar(false)}

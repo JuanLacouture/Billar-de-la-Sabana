@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
 import './Cuentas.css'
+import ConsumoMesa from './ConsumoMesa'
+import DetalleCuenta from './DetalleCuenta'
 
 function segundosAFormato(seg) {
   const h = Math.floor(seg / 3600)
@@ -16,19 +18,44 @@ function calcularSegundos(horaInicio) {
 }
 
 const colorTipo = {
-  '3 Bandas':     { bg: 'bg-blue' },
-  'Pool':         { bg: 'bg-green' },
+  '3 Bandas':       { bg: 'bg-blue' },
+  'Pool':           { bg: 'bg-green' },
   'Mano de Cartas': { bg: 'bg-red' },
-  'Libre':        { bg: 'bg-purple' },
-  'Bolirana':     { bg: 'bg-orange' },
+  'Libre':          { bg: 'bg-purple' },
+  'Bolirana':       { bg: 'bg-orange' },
+}
+
+const METODO_LABEL = {
+  efectivo:  'Efectivo',
+  nequi:     'Nequi',
+  daviplata: 'Daviplata',
+  bold:      'Bold',
+}
+
+const METODO_COLORS = {
+  efectivo:  'cu-hist-tag-yellow',
+  nequi:     'cu-hist-tag-purple',
+  daviplata: 'cu-hist-tag-pink',
+  bold:      'cu-hist-tag-slate',
 }
 
 function Cuentas({ onNavegar }) {
-  const [cuentas, setCuentas] = useState([])
-  const [cargando, setCargando] = useState(true)
-  const [busqueda, setBusqueda] = useState('')
-  const [filtro, setFiltro] = useState('todos')
-  const [, setTick] = useState(0)
+  const [cuentas, setCuentas]               = useState([])
+  const [cargando, setCargando]             = useState(true)
+  const [busqueda, setBusqueda]             = useState('')
+  const [filtro, setFiltro]                 = useState('todos')
+  const [, setTick]                         = useState(0)
+
+  // ── Navegación interna ──
+  const [cuentaDetalle, setCuentaDetalle]   = useState(null)
+  const [cuentaConsumo, setCuentaConsumo]   = useState(null)
+  const [cuentaLiquidar, setCuentaLiquidar] = useState(null)
+
+  // ── Histórico ──
+  const [mostrarHistorico, setMostrarHistorico] = useState(false)
+  const [historico, setHistorico]               = useState([])
+  const [loadingHistorico, setLoadingHistorico] = useState(false)
+  const [busquedaHist, setBusquedaHist]         = useState('')
 
   const cargarCuentas = async () => {
     setCargando(true)
@@ -41,6 +68,23 @@ function Cuentas({ onNavegar }) {
     setCargando(false)
   }
 
+  const cargarHistorico = async () => {
+    setLoadingHistorico(true)
+    const { data } = await supabase
+      .from('cuentas')
+      .select(`*, mesas(numero, tipo), clientes(nombre)`)
+      .eq('estado', 'liquidada')
+      .order('hora_cierre', { ascending: false })
+      .limit(80)
+    if (data) setHistorico(data)
+    setLoadingHistorico(false)
+  }
+
+  const abrirHistorico = () => {
+    cargarHistorico()
+    setMostrarHistorico(true)
+  }
+
   useEffect(() => {
     cargarCuentas()
     const intervalo = setInterval(() => setTick(t => t + 1), 1000)
@@ -51,6 +95,45 @@ function Cuentas({ onNavegar }) {
     await supabase.auth.signOut()
   }
 
+  // ── Render condicional ──
+  if (cuentaConsumo) {
+    return (
+      <ConsumoMesa
+        cuenta={cuentaConsumo}
+        irALiquidar={false}
+        onVolver={() => { setCuentaConsumo(null); cargarCuentas() }}
+      />
+    )
+  }
+  if (cuentaLiquidar) {
+    return (
+      <ConsumoMesa
+        cuenta={cuentaLiquidar}
+        irALiquidar={true}
+        onVolver={() => { setCuentaLiquidar(null); cargarCuentas() }}
+      />
+    )
+  }
+  if (cuentaDetalle) {
+    return (
+      <DetalleCuenta
+        cuenta={cuentaDetalle}
+        onVolver={() => { setCuentaDetalle(null); cargarCuentas() }}
+        onLiquidar={() => {
+          const c = cuentaDetalle
+          setCuentaDetalle(null)
+          setCuentaLiquidar(c)
+        }}
+        onAgregarProductos={() => {
+          const c = cuentaDetalle
+          setCuentaDetalle(null)
+          setCuentaConsumo(c)
+        }}
+      />
+    )
+  }
+
+  // ── Filtros ──
   const cuentasFiltradas = cuentas.filter(c => {
     const nombre = c.clientes?.nombre?.toLowerCase() ?? ''
     const numero = String(c.mesas?.numero ?? '')
@@ -60,6 +143,13 @@ function Cuentas({ onNavegar }) {
     if (filtro === 'mesas')         return matchBusqueda && c.mesa_id !== null
     if (filtro === 'venta_directa') return matchBusqueda && c.mesa_id === null
     return matchBusqueda
+  })
+
+  const historicoFiltrado = historico.filter(c => {
+    const q = busquedaHist.toLowerCase()
+    const nombre = c.clientes?.nombre?.toLowerCase() ?? ''
+    const numero = String(c.mesas?.numero ?? '')
+    return nombre.includes(q) || numero.includes(q)
   })
 
   const totalAbierto = cuentas.reduce((acc, c) => {
@@ -78,8 +168,138 @@ function Cuentas({ onNavegar }) {
     return new Date(hora).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
   }
 
+  const formatFecha = (iso) => {
+    if (!iso) return '--'
+    return new Date(iso).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
+  }
+
+  const formatHora = (iso) => {
+    if (!iso) return '--'
+    return new Date(iso).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
+  }
+
   return (
     <div className="cu-root">
+
+      {/* ── MODAL HISTÓRICO ── */}
+      {mostrarHistorico && (
+        <div className="cu-hist-overlay" onClick={() => setMostrarHistorico(false)}>
+          <div className="cu-hist-modal" onClick={e => e.stopPropagation()}>
+            <div className="cu-hist-header">
+              <div className="cu-hist-title-row">
+                <div className="cu-hist-title-icon">
+                  <span className="material-icons-outlined">history</span>
+                </div>
+                <div>
+                  <h3 className="cu-hist-title">Histórico de Cuentas</h3>
+                  <p className="cu-hist-sub">Cuentas liquidadas · {historico.length} registros</p>
+                </div>
+              </div>
+              <button className="cu-hist-close" onClick={() => setMostrarHistorico(false)}>
+                <span className="material-icons-outlined">close</span>
+              </button>
+            </div>
+
+            <div className="cu-hist-search-row">
+              <div className="cu-hist-search-wrap">
+                <span className="material-icons-outlined cu-hist-search-icon">search</span>
+                <input
+                  className="cu-hist-search"
+                  type="text"
+                  placeholder="Buscar cliente o mesa..."
+                  value={busquedaHist}
+                  onChange={e => setBusquedaHist(e.target.value)}
+                />
+              </div>
+              <span className="cu-hist-count">{historicoFiltrado.length} resultados</span>
+            </div>
+
+            <div className="cu-hist-body">
+              {loadingHistorico ? (
+                <div className="cu-hist-loading">
+                  <span className="material-icons-outlined cu-hist-spin">autorenew</span>
+                  Cargando historial...
+                </div>
+              ) : historicoFiltrado.length === 0 ? (
+                <div className="cu-hist-empty">
+                  <span className="material-icons-outlined">receipt_long</span>
+                  <p>No hay cuentas en el historial.</p>
+                </div>
+              ) : (
+                <table className="cu-hist-table">
+                  <thead>
+                    <tr className="cu-hist-thead">
+                      <th>Mesa / Cliente</th>
+                      <th>Fecha</th>
+                      <th>Apertura</th>
+                      <th>Cierre</th>
+                      <th>Método</th>
+                      <th className="cu-hist-th-right">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {historicoFiltrado.map(c => {
+                      const tipo    = c.mesas?.tipo ?? ''
+                      const colores = colorTipo[tipo] ?? { bg: 'bg-slate' }
+                      const metodo  = c.metodo_pago ?? 'efectivo'
+                      return (
+                        <tr key={c.id} className="cu-hist-tr">
+                          <td>
+                            <div className="cu-td-mesa">
+                              {c.mesa_id ? (
+                                <span className={`cu-mesa-num ${colores.bg}`}>
+                                  {String(c.mesas?.numero ?? '--').padStart(2, '0')}
+                                </span>
+                              ) : (
+                                <span className="cu-mesa-num bg-slate cu-mesa-dir">DIR</span>
+                              )}
+                              <div>
+                                <p className="cu-mesa-tipo">{tipo || 'Venta Directa'}</p>
+                                <p className="cu-mesa-cliente">{c.clientes?.nombre ?? 'Sin cliente'}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="cu-hist-td">{formatFecha(c.hora_cierre)}</td>
+                          <td className="cu-hist-td cu-mono">{formatHora(c.hora_apertura)}</td>
+                          <td className="cu-hist-td cu-mono">{formatHora(c.hora_cierre)}</td>
+                          <td className="cu-hist-td">
+                            <span className={`cu-hist-tag ${METODO_COLORS[metodo] ?? 'cu-hist-tag-yellow'}`}>
+                              {METODO_LABEL[metodo] ?? metodo}
+                            </span>
+                          </td>
+                          <td className="cu-hist-td cu-hist-td-total">
+                            {formatCOP((c.subtotal_tiempo ?? 0) + (c.subtotal_productos ?? 0))}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            <div className="cu-hist-footer">
+              <div className="cu-hist-footer-stats">
+                <div className="cu-hist-stat">
+                  <span>Total recaudado</span>
+                  <strong>
+                    {formatCOP(historico.reduce((s, c) => s + (c.subtotal_tiempo ?? 0) + (c.subtotal_productos ?? 0), 0))}
+                  </strong>
+                </div>
+                <div className="cu-hist-stat">
+                  <span>Cuentas cerradas</span>
+                  <strong>{historico.length}</strong>
+                </div>
+              </div>
+              <button className="cu-hist-btn-cerrar" onClick={() => setMostrarHistorico(false)}>
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── SIDEBAR ── */}
       <aside className="cu-sidebar">
         <div className="cu-sidebar-logo">
           <span className="material-icons-outlined cu-sidebar-icon">sports_esports</span>
@@ -104,7 +324,7 @@ function Cuentas({ onNavegar }) {
           </a>
           <a className="cu-nav-item" onClick={() => onNavegar('clientes')}>
             <span className="material-icons-outlined">people</span>Clientes
-        </a>
+          </a>
         </nav>
 
         <div className="cu-sidebar-footer">
@@ -119,6 +339,7 @@ function Cuentas({ onNavegar }) {
         </div>
       </aside>
 
+      {/* ── MAIN ── */}
       <main className="cu-main">
         <header className="cu-mobile-header">
           <span className="cu-mobile-script">Sabana</span>
@@ -133,11 +354,17 @@ function Cuentas({ onNavegar }) {
                 Hay <strong className="cu-highlight">{cuentas.length} cuentas abiertas</strong> en este momento.
               </p>
             </div>
-            <button className="cu-btn-primary">
-              <span className="material-icons-outlined">add_shopping_cart</span>Venta Directa
-            </button>
+            <div className="cu-topbar-actions">
+              <button className="cu-btn-historico" onClick={abrirHistorico}>
+                <span className="material-icons-outlined">history</span>Ver Historial
+              </button>
+              <button className="cu-btn-primary">
+                <span className="material-icons-outlined">add_shopping_cart</span>Venta Directa
+              </button>
+            </div>
           </div>
 
+          {/* Stats */}
           <div className="cu-stats">
             <div className="cu-stat-card">
               <div className="cu-stat-accent cu-stat-accent-gold"></div>
@@ -170,6 +397,7 @@ function Cuentas({ onNavegar }) {
             </div>
           </div>
 
+          {/* Toolbar */}
           <div className="cu-toolbar">
             <div className="cu-filter-tabs">
               {[
@@ -198,6 +426,7 @@ function Cuentas({ onNavegar }) {
             </div>
           </div>
 
+          {/* Tabla */}
           <div className="cu-table-wrapper">
             <div className="cu-table-scroll">
               <table className="cu-table">
@@ -218,17 +447,16 @@ function Cuentas({ onNavegar }) {
                     <tr><td colSpan={6} className="cu-empty">No hay cuentas abiertas.</td></tr>
                   ) : (
                     cuentasFiltradas.map(cuenta => {
-                      const seg = calcularSegundos(cuenta.hora_apertura)
-                      const tiempoStr = segundosAFormato(seg)
+                      const seg          = calcularSegundos(cuenta.hora_apertura)
+                      const tiempoStr    = segundosAFormato(seg)
                       const subtotalMesa = (seg / 60) * (cuenta.mesas?.precio_minuto ?? 0)
-                      const total = subtotalMesa + (cuenta.subtotal_productos ?? 0)
-                      const tipo = cuenta.mesas?.tipo ?? ''
-                      const colores = colorTipo[tipo] ?? { bg: 'bg-slate' }
+                      const total        = subtotalMesa + (cuenta.subtotal_productos ?? 0)
+                      const tipo         = cuenta.mesas?.tipo ?? ''
+                      const colores      = colorTipo[tipo] ?? { bg: 'bg-slate' }
 
                       return (
                         <tr key={cuenta.id} className="cu-row">
                           <td>
-                            {/* ← variable cuenta, no c */}
                             <div className="cu-td-mesa">
                               {cuenta.mesa_id ? (
                                 <span className={`cu-mesa-num ${colores.bg}`}>
@@ -260,10 +488,16 @@ function Cuentas({ onNavegar }) {
                             <span className="cu-total-badge">{formatCOP(total)}</span>
                           </td>
                           <td className="cu-td-acciones">
-                            <button className="cu-btn-ver">
+                            <button
+                              className="cu-btn-ver"
+                              onClick={() => setCuentaDetalle(cuenta)}
+                            >
                               <span className="material-icons-outlined">visibility</span>Ver
                             </button>
-                            <button className="cu-btn-liquidar">
+                            <button
+                              className="cu-btn-liquidar"
+                              onClick={() => setCuentaLiquidar(cuenta)}
+                            >
                               <span className="material-icons-outlined">point_of_sale</span>Liquidar
                             </button>
                           </td>
