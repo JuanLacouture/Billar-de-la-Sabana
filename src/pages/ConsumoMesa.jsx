@@ -31,19 +31,23 @@ const EMOJIS = {
 }
 
 function ConsumoMesa({ cuenta, onVolver }) {
-  const [productos, setProductos] = useState([])
-  const [carrito, setCarrito]     = useState([])
-  const [busqueda, setBusqueda]   = useState('')
-  const [categoria, setCategoria] = useState('Todo')
-  const [, setTick]               = useState(0)
-  const [guardando, setGuardando] = useState(false)
+  const [productos, setProductos]           = useState([])
+  const [carrito, setCarrito]               = useState([])
+  const [itemsGuardados, setItemsGuardados] = useState([])
+  const [busqueda, setBusqueda]             = useState('')
+  const [categoria, setCategoria]           = useState('Todo')
+  const [, setTick]                         = useState(0)
+  const [guardando, setGuardando]           = useState(false)
+  const [guardadoOk, setGuardadoOk]         = useState(false)
+  const [errorMsg, setErrorMsg]             = useState(null)
+  const [subtotalGuardado, setSubtotalGuardado] = useState(cuenta.subtotal_productos ?? 0)
+  const [confirmModal, setConfirmModal]     = useState(null)
 
   useEffect(() => {
     const iv = setInterval(() => setTick(t => t + 1), 1000)
     return () => clearInterval(iv)
   }, [])
 
-  // ← Query con join a categorias para obtener el nombre
   useEffect(() => {
     const cargar = async () => {
       const { data, error } = await supabase
@@ -55,12 +59,15 @@ function ConsumoMesa({ cuenta, onVolver }) {
     cargar()
   }, [])
 
+  useEffect(() => {
+    recargarItems()
+  }, [cuenta.id])
+
   const seg          = calcularSegundos(cuenta.hora_apertura)
   const tiempoStr    = segundosAFormato(seg)
   const precioMinuto = cuenta.mesas?.precio_minuto ?? 0
   const subtotalMesa = (seg / 60) * precioMinuto
 
-  // ← Filtro usando categorias.nombre del join
   const productosFiltrados = productos.filter(p => {
     const matchQ   = p.nombre?.toLowerCase().includes(busqueda.toLowerCase())
     const matchCat = categoria === 'Todo' || p.categorias?.nombre === categoria
@@ -89,44 +96,153 @@ function ConsumoMesa({ cuenta, onVolver }) {
     )
   }
 
-  const subtotalProductos = carrito.reduce((acc, i) => acc + i.producto.precio * i.cantidad, 0)
-  const subtotalExistente = cuenta.subtotal_productos ?? 0
-  const totalProductos    = subtotalExistente + subtotalProductos
-  const totalCuenta       = subtotalMesa + totalProductos
+  const subtotalCarrito = carrito.reduce((acc, i) => acc + i.producto.precio * i.cantidad, 0)
+  const totalProductos  = subtotalGuardado + subtotalCarrito
+  const totalCuenta     = subtotalMesa + totalProductos
+
+  const recargarItems = async () => {
+    const { data } = await supabase
+      .from('items_cuenta')
+      .select('*, productos(nombre, precio)')
+      .eq('cuenta_id', cuenta.id)
+      .order('id', { ascending: true })
+    if (data) setItemsGuardados(data)
+  }
+
+  const itemsAgrupados = Object.values(
+    itemsGuardados.reduce((acc, item) => {
+      const pid = item.producto_id
+      if (acc[pid]) {
+        acc[pid].cantidad += item.cantidad
+        acc[pid].ids.push(item.id)
+      } else {
+        acc[pid] = { ...item, ids: [item.id] }
+      }
+      return acc
+    }, {})
+  )
 
   const handleGuardar = async () => {
     if (carrito.length === 0) return
     setGuardando(true)
+    setErrorMsg(null)
 
     const inserts = carrito.map(i => ({
-      cuenta_id:   cuenta.id,
-      producto_id: i.producto.id,
-      cantidad:    i.cantidad,
-      precio_unit: i.producto.precio,
-      subtotal:    i.producto.precio * i.cantidad,
+      cuenta_id:       cuenta.id,
+      producto_id:     i.producto.id,
+      cantidad:        i.cantidad,
+      precio_unitario: i.producto.precio,
     }))
 
-    const { error: errInsert } = await supabase
-      .from('cuenta_productos')
+    const { error: errItems } = await supabase
+      .from('items_cuenta')
       .insert(inserts)
 
-    if (!errInsert) {
-      const nuevoSubtotal = subtotalExistente + subtotalProductos
-      await supabase
-        .from('cuentas')
-        .update({ subtotal_productos: nuevoSubtotal })
-        .eq('id', cuenta.id)
-      setCarrito([])
+    if (errItems) {
+      setErrorMsg('Error al guardar los productos. Intenta de nuevo.')
+      setGuardando(false)
+      return
     }
 
+    for (const item of carrito) {
+      try {
+        await supabase.rpc('decrementar_stock', {
+          p_producto_id: item.producto.id,
+          p_cantidad:    item.cantidad,
+        })
+      } catch (_) {}
+    }
+
+    const movimientos = carrito.map(i => ({
+      producto_id:     i.producto.id,
+      cuenta_id:       cuenta.id,
+      tipo_movimiento: 'salida',
+      cantidad:        i.cantidad,
+    }))
+    await supabase.from('movimientos_inventario').insert(movimientos)
+
+    const nuevoSubtotal = subtotalGuardado + subtotalCarrito
+    const { error: errCuenta } = await supabase
+      .from('cuentas')
+      .update({ subtotal_productos: nuevoSubtotal })
+      .eq('id', cuenta.id)
+
+    if (errCuenta) {
+      setErrorMsg('Productos guardados pero error al actualizar total.')
+      setGuardando(false)
+      return
+    }
+
+    setSubtotalGuardado(nuevoSubtotal)
+    setCarrito([])
+    await recargarItems()
+    setGuardadoOk(true)
+    setTimeout(() => setGuardadoOk(false), 2500)
     setGuardando(false)
   }
+
+  const confirmarEliminar = (ids, subtotalItem, nombre, cantidadTotal) => {
+    setConfirmModal({ ids, subtotalItem, nombre, cantidadTotal, cantidadEliminar: cantidadTotal })
+  }
+
+  const handleEliminarConfirmado = async () => {
+  const { ids, cantidadTotal, cantidadEliminar, subtotalItem } = confirmModal
+  const precioUnit = subtotalItem / cantidadTotal
+  setConfirmModal(null)
+
+  if (cantidadEliminar === cantidadTotal) {
+    // Borrar todas las filas del producto
+    const { error } = await supabase
+      .from('items_cuenta')
+      .delete()
+      .in('id', ids)
+    if (error) { setErrorMsg('No se pudo eliminar.'); return }
+
+  } else {
+    // Necesitamos restar cantidadEliminar del total
+    // Recargamos los registros reales para saber cuánto tiene cada fila
+    const { data: filas } = await supabase
+      .from('items_cuenta')
+      .select('id, cantidad')
+      .in('id', ids)
+      .order('id', { ascending: true })
+
+    let restante = cantidadEliminar
+
+    for (const fila of filas) {
+      if (restante <= 0) break
+
+      if (fila.cantidad <= restante) {
+        // Eliminar esta fila completa
+        await supabase.from('items_cuenta').delete().eq('id', fila.id)
+        restante -= fila.cantidad
+      } else {
+        // Reducir la cantidad de esta fila
+        await supabase
+          .from('items_cuenta')
+          .update({ cantidad: fila.cantidad - restante })
+          .eq('id', fila.id)
+        restante = 0
+      }
+    }
+  }
+
+  const subtotalARestar = precioUnit * cantidadEliminar
+  const nuevoSubtotal = Math.max(0, subtotalGuardado - subtotalARestar)
+  await supabase
+    .from('cuentas')
+    .update({ subtotal_productos: nuevoSubtotal })
+    .eq('id', cuenta.id)
+
+  setSubtotalGuardado(nuevoSubtotal)
+  await recargarItems()
+}
+
 
   const horaInicio = cuenta.hora_apertura
     ? new Date(cuenta.hora_apertura).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
     : '--'
 
-  // Cantidad en carrito de un producto (para mostrar badge)
   const cantidadEnCarrito = (id) => {
     const item = carrito.find(i => i.producto.id === id)
     return item ? item.cantidad : 0
@@ -134,6 +250,54 @@ function ConsumoMesa({ cuenta, onVolver }) {
 
   return (
     <div className="cm-root">
+
+      {/* ── Modal confirmación eliminar ── */}
+      {confirmModal && (
+        <div className="cm-modal-overlay" onClick={() => setConfirmModal(null)}>
+          <div className="cm-modal" onClick={e => e.stopPropagation()}>
+            <div className="cm-modal-icon">
+              <span className="material-icons-outlined">delete_forever</span>
+            </div>
+            <h3 className="cm-modal-title">¿Eliminar producto?</h3>
+            <p className="cm-modal-desc">
+              <strong>{confirmModal.nombre}</strong>
+            </p>
+
+            {confirmModal.cantidadTotal > 1 ? (
+              <div className="cm-modal-cantidad">
+                <p className="cm-modal-cant-label">¿Cuántas unidades eliminar?</p>
+                <div className="cm-modal-cant-controls">
+                  <button onClick={() => setConfirmModal(prev => ({
+                    ...prev, cantidadEliminar: Math.max(1, prev.cantidadEliminar - 1)
+                  }))}>−</button>
+                  <span>{confirmModal.cantidadEliminar}</span>
+                  <button onClick={() => setConfirmModal(prev => ({
+                    ...prev, cantidadEliminar: Math.min(prev.cantidadTotal, prev.cantidadEliminar + 1)
+                  }))}>+</button>
+                </div>
+                <p className="cm-modal-cant-hint">
+                  {confirmModal.cantidadEliminar === confirmModal.cantidadTotal
+                    ? 'Se eliminará el producto completo'
+                    : `Quedarán ${confirmModal.cantidadTotal - confirmModal.cantidadEliminar} unidad(es)`
+                  }
+                </p>
+              </div>
+            ) : (
+              <p className="cm-modal-desc">Esta acción no se puede deshacer.</p>
+            )}
+
+            <div className="cm-modal-actions">
+              <button className="cm-modal-cancel" onClick={() => setConfirmModal(null)}>
+                Cancelar
+              </button>
+              <button className="cm-modal-confirm" onClick={handleEliminarConfirmado}>
+                <span className="material-icons-outlined">delete</span>
+                Eliminar {confirmModal.cantidadEliminar > 1 ? `(${confirmModal.cantidadEliminar})` : ''}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <header className="cm-header">
         <div className="cm-header-left">
@@ -156,10 +320,8 @@ function ConsumoMesa({ cuenta, onVolver }) {
 
       <main className="cm-main">
 
-        {/* Panel izquierdo */}
         <div className="cm-left">
 
-          {/* Info mesa */}
           <div className="cm-mesa-info">
             <div className="cm-mesa-icon-wrap">
               <span className="material-icons-outlined cm-mesa-icon">sports_bar</span>
@@ -188,7 +350,6 @@ function ConsumoMesa({ cuenta, onVolver }) {
             </div>
           </div>
 
-          {/* Catálogo */}
           <div className="cm-catalogo">
             <div className="cm-catalogo-header">
               <div className="cm-search-row">
@@ -216,7 +377,6 @@ function ConsumoMesa({ cuenta, onVolver }) {
               </div>
             </div>
 
-            {/* Grid productos */}
             <div className="cm-grid-wrap">
               <div className="cm-grid">
                 {productosFiltrados.length === 0 ? (
@@ -236,19 +396,10 @@ function ConsumoMesa({ cuenta, onVolver }) {
                           )}
                           <div className="cm-producto-overlay" />
                           <span className="cm-producto-precio">{formatCOP(producto.precio)}</span>
-
-                          {/* Badge cantidad si ya está en carrito */}
-                          {cant > 0 && (
-                            <span className="cm-producto-badge">{cant}</span>
-                          )}
-
-                          {/* ← Hover overlay con controles */}
+                          {cant > 0 && <span className="cm-producto-badge">{cant}</span>}
                           <div className="cm-producto-hover">
                             {cant === 0 ? (
-                              <button
-                                className="cm-hover-agregar"
-                                onClick={() => agregarProducto(producto)}
-                              >
+                              <button className="cm-hover-agregar" onClick={() => agregarProducto(producto)}>
                                 <span className="material-icons-outlined">add_shopping_cart</span>
                                 Agregar
                               </button>
@@ -265,7 +416,6 @@ function ConsumoMesa({ cuenta, onVolver }) {
                             )}
                           </div>
                         </div>
-
                         <div className="cm-producto-info">
                           <h3 className="cm-producto-nombre">{producto.nombre}</h3>
                           <p className="cm-producto-desc">{producto.categorias?.nombre ?? '--'}</p>
@@ -279,7 +429,6 @@ function ConsumoMesa({ cuenta, onVolver }) {
           </div>
         </div>
 
-        {/* Panel derecho — Cuenta */}
         <aside className="cm-aside">
 
           <div className="cm-aside-header">
@@ -300,7 +449,6 @@ function ConsumoMesa({ cuenta, onVolver }) {
 
           <div className="cm-aside-items">
 
-            {/* Tiempo de mesa */}
             <div className="cm-item-mesa">
               <div className="cm-item-mesa-left">
                 <div className="cm-item-mesa-icon">
@@ -318,19 +466,44 @@ function ConsumoMesa({ cuenta, onVolver }) {
               <span className="cm-item-mesa-total">{formatCOP(subtotalMesa)}</span>
             </div>
 
-            {subtotalExistente > 0 && (
-              <div className="cm-item-guardado">
-                <span className="material-icons-outlined">check_circle</span>
-                <span>Consumos anteriores: {formatCOP(subtotalExistente)}</span>
+            {itemsAgrupados.map(item => (
+              <div key={item.producto_id} className="cm-carrito-item cm-item-guardado-row">
+                <div className="cm-carrito-item-left">
+                  <div className="cm-carrito-cant">{item.cantidad}</div>
+                  <div>
+                    <p className="cm-carrito-nombre">{item.productos?.nombre}</p>
+                    <p className="cm-carrito-precio">{formatCOP(item.productos?.precio)} c/u</p>
+                  </div>
+                </div>
+                <div className="cm-carrito-right">
+                  <p className="cm-carrito-subtotal">
+                    {formatCOP(item.cantidad * item.productos?.precio)}
+                  </p>
+                  <button
+                    className="cm-carrito-del"
+                    onClick={() => confirmarEliminar(
+                      item.ids,
+                      item.cantidad * item.productos?.precio,
+                      item.productos?.nombre,
+                      item.cantidad
+                    )}
+                  >
+                    <span className="material-icons-outlined">delete</span>
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {itemsAgrupados.length > 0 && carrito.length > 0 && (
+              <div className="cm-separador-carrito">
+                <span>Nuevos</span>
               </div>
             )}
 
-            {/* ← Carrito con hover para sumar/restar */}
             {carrito.map(item => (
               <div key={item.producto.id} className="cm-carrito-item">
                 <div className="cm-carrito-item-left">
                   <div className="cm-carrito-cant-wrap">
-                    {/* Controles visibles en hover */}
                     <button
                       className="cm-carrito-ctrl cm-carrito-ctrl-minus"
                       onClick={() => cambiarCantidad(item.producto.id, -1)}
@@ -350,17 +523,14 @@ function ConsumoMesa({ cuenta, onVolver }) {
                   <p className="cm-carrito-subtotal">
                     {formatCOP(item.producto.precio * item.cantidad)}
                   </p>
-                  <button
-                    className="cm-carrito-del"
-                    onClick={() => quitarProducto(item.producto.id)}
-                  >
+                  <button className="cm-carrito-del" onClick={() => quitarProducto(item.producto.id)}>
                     <span className="material-icons-outlined">delete</span>
                   </button>
                 </div>
               </div>
             ))}
 
-            {carrito.length === 0 && subtotalExistente === 0 && (
+            {itemsAgrupados.length === 0 && carrito.length === 0 && (
               <p className="cm-carrito-vacio">
                 <span className="material-icons-outlined">shopping_cart</span>
                 Sin productos aún
@@ -369,6 +539,19 @@ function ConsumoMesa({ cuenta, onVolver }) {
           </div>
 
           <div className="cm-aside-footer">
+            {guardadoOk && (
+              <div className="cm-feedback-ok">
+                <span className="material-icons-outlined">check_circle</span>
+                Consumo guardado correctamente
+              </div>
+            )}
+            {errorMsg && (
+              <div className="cm-feedback-error">
+                <span className="material-icons-outlined">error</span>
+                {errorMsg}
+              </div>
+            )}
+
             <div className="cm-totales">
               <div className="cm-total-row">
                 <span>Mesa</span>
@@ -389,8 +572,10 @@ function ConsumoMesa({ cuenta, onVolver }) {
               onClick={handleGuardar}
               disabled={guardando || carrito.length === 0}
             >
-              <span className="material-icons-outlined">save</span>
-              {guardando ? 'Guardando...' : 'Guardar Consumo'}
+              <span className="material-icons-outlined">
+                {guardando ? 'hourglass_top' : 'save'}
+              </span>
+              {guardando ? 'Guardando...' : `Guardar Consumo (${carrito.length})`}
             </button>
 
             <button className="cm-btn-liquidar" onClick={onVolver}>

@@ -629,3 +629,162 @@
 .cm-carrito-item:hover .cm-carrito-del { opacity: 1; }
 .cm-carrito-del:hover { color: #EF4444; }
 .cm-carrito-del .material-icons-outlined { font-size: 0.9rem !important; }
+
+.cm-feedback-ok {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.625rem 0.875rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #16a34a;
+  animation: fadeIn 0.3s ease;
+}
+.cm-feedback-error {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.625rem 0.875rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #dc2626;
+}
+.cm-feedback-ok .material-icons-outlined,
+.cm-feedback-error .material-icons-outlined { font-size: 1rem !important; }
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+.cm-item-guardado-row {
+  border-left: 3px solid #bbf7d0 !important;
+  opacity: 0.8;
+}
+.cm-item-guardado-row:hover { opacity: 1; }
+
+
+.cm-separador-carrito {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-size: 0.65rem; font-weight: 700;
+  color: #9ca3af; text-transform: uppercase; letter-spacing: 0.08em;
+}
+.cm-separador-carrito::before,
+.cm-separador-carrito::after {
+  content: ''; flex: 1; height: 1px; background: #e5e7eb;
+}
+.cm-item-guardado-row {
+  border-left: 3px solid #bbf7d0 !important;
+  opacity: 0.85;
+}
+.cm-item-guardado-row:hover { opacity: 1; }
+.cm-item-guardado-row .cm-carrito-del { opacity: 0; }
+.cm-item-guardado-row:hover .cm-carrito-del { opacity: 1; }
+
+.cm-separador-carrito {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-size: 0.65rem; font-weight: 700;
+  color: #9ca3af; text-transform: uppercase; letter-spacing: 0.08em;
+}
+.cm-separador-carrito::before,
+.cm-separador-carrito::after {
+  content: ''; flex: 1; height: 1px; background: #e5e7eb;
+}
+/* ── Modal confirmación ── */
+.cm-modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(2px);
+  animation: fadeIn 0.2s ease;
+}
+.cm-modal {
+  background: white;
+  border-radius: 1rem;
+  padding: 2rem;
+  width: 22rem;
+  max-width: 90vw;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 0.75rem;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  animation: slideUp 0.2s ease;
+}
+.cm-modal-icon {
+  width: 3.5rem; height: 3.5rem;
+  border-radius: 50%;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  display: flex; align-items: center; justify-content: center;
+  color: #dc2626;
+}
+.cm-modal-icon .material-icons-outlined { font-size: 1.75rem !important; }
+.cm-modal-title {
+  font-size: 1.1rem; font-weight: 700; color: #111827;
+  margin: 0; text-align: center;
+}
+.cm-modal-desc {
+  font-size: 0.85rem; color: #6b7280;
+  text-align: center; margin: 0; line-height: 1.5;
+}
+.cm-modal-desc strong { color: #111827; }
+.cm-modal-actions {
+  display: flex; gap: 0.75rem; width: 100%; margin-top: 0.5rem;
+}
+.cm-modal-cancel {
+  flex: 1; padding: 0.75rem;
+  background: #f3f4f6; border: 1px solid #e5e7eb;
+  border-radius: 0.625rem; font-weight: 600;
+  font-size: 0.875rem; color: #374151;
+  cursor: pointer; transition: all 0.15s;
+  font-family: 'Lato', sans-serif;
+}
+.cm-modal-cancel:hover { background: #e5e7eb; }
+.cm-modal-confirm {
+  flex: 1; padding: 0.75rem;
+  display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+  background: #dc2626; border: none;
+  border-radius: 0.625rem; font-weight: 700;
+  font-size: 0.875rem; color: white;
+  cursor: pointer; transition: all 0.15s;
+  font-family: 'Lato', sans-serif;
+}
+.cm-modal-confirm:hover { background: #b91c1c; }
+.cm-modal-confirm .material-icons-outlined { font-size: 1rem !important; }
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.cm-modal-cantidad {
+  display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+  width: 100%;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+.cm-modal-cant-label {
+  font-size: 0.8rem; color: #6b7280; margin: 0; font-weight: 600;
+}
+.cm-modal-cant-controls {
+  display: flex; align-items: center; gap: 1rem;
+}
+.cm-modal-cant-controls button {
+  width: 2.5rem; height: 2.5rem;
+  border-radius: 50%;
+  border: 1px solid #e5e7eb;
+  background: white;
+  font-size: 1.25rem; font-weight: 700;
+  color: #374151; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+}
+.cm-modal-cant-controls button:hover { background: #f3f4f6; border-color: #d1d5db; }
+.cm-modal-cant-controls span {
+  font-size: 1.75rem; font-weight: 700; color: #111827;
+  min-width: 2rem; text-align: center;
+}
+.cm-modal-cant-hint {
+  font-size: 0.75rem; color: #9ca3af; margin: 0;
+}
