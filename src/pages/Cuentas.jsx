@@ -39,6 +39,198 @@ const METODO_COLORS = {
   bold:      'cu-hist-tag-slate',
 }
 
+// ══════════════════════════════════════════════════════
+//  MODAL VENTA DIRECTA
+// ══════════════════════════════════════════════════════
+function ModalVentaDirecta({ onConfirmar, onCancelar }) {
+  const [clientes, setClientes]                         = useState([])
+  const [busqueda, setBusqueda]                         = useState('')
+  const [clienteSeleccionado, setClienteSeleccionado]   = useState(null)
+  const [dropdownAbierto, setDropdownAbierto]           = useState(false)
+  const [creando, setCreando]                           = useState(false)
+
+  useEffect(() => {
+    supabase
+      .from('clientes')
+      .select('id, nombre, telefono, is_compra_rapida')
+      .order('nombre', { ascending: true })
+      .then(({ data }) => { if (data) setClientes(data) })
+  }, [])
+
+  // Cerrar dropdown al hacer clic fuera
+  useEffect(() => {
+    const cerrar = (e) => {
+      if (!e.target.closest('.cu-vd-dropdown-wrapper')) {
+        setDropdownAbierto(false)
+      }
+    }
+    document.addEventListener('mousedown', cerrar)
+    return () => document.removeEventListener('mousedown', cerrar)
+  }, [])
+
+  const clientesFiltrados = clientes.filter(c =>
+    c.nombre.toLowerCase().includes(busqueda.toLowerCase())
+  )
+
+  const handleSeleccionar = (cliente) => {
+    setClienteSeleccionado(cliente)
+    setBusqueda(cliente.nombre)
+    setDropdownAbierto(false)
+  }
+
+  const limpiarSeleccion = () => {
+    setClienteSeleccionado(null)
+    setBusqueda('')
+    setDropdownAbierto(false)
+  }
+
+  const handleConfirmar = async () => {
+    setCreando(true)
+    await onConfirmar(clienteSeleccionado)
+    setCreando(false)
+  }
+
+  const clienteRapido = clientes.find(c => c.is_compra_rapida)
+
+  return (
+    <div className="cu-vd-overlay" onClick={onCancelar}>
+      <div className="cu-vd-modal" onClick={e => e.stopPropagation()}>
+
+        {/* ── Header ── */}
+        <div className="cu-vd-header">
+          <div className="cu-vd-header-left">
+            <div className="cu-vd-icon">
+              <span className="material-icons-outlined">add_shopping_cart</span>
+            </div>
+            <div>
+              <h3 className="cu-vd-title">Nueva Venta Directa</h3>
+              <p className="cu-vd-sub">Sin mesa · Solo productos</p>
+            </div>
+          </div>
+          <button className="cu-vd-close" onClick={onCancelar}>
+            <span className="material-icons-outlined">close</span>
+          </button>
+        </div>
+
+        {/* ── Body ── */}
+        <div className="cu-vd-body">
+
+          <div className="cu-vd-info-row">
+            <span className="material-icons-outlined">info</span>
+            <span>Puedes dejar la cuenta abierta o liquidarla directamente.</span>
+          </div>
+
+          <div className="cu-vd-field">
+            <label className="cu-vd-label">
+              <span className="material-icons-outlined">person_search</span>
+              Asignar cliente
+              <span className="cu-vd-optional">· opcional</span>
+            </label>
+
+            <div className="cu-vd-dropdown-wrapper">
+              <div className="cu-vd-input-wrap">
+                <span className="material-icons-outlined cu-vd-input-icon">search</span>
+                <input
+                  className="cu-vd-input"
+                  type="text"
+                  placeholder="Buscar por nombre..."
+                  value={busqueda}
+                  onChange={e => {
+                    setBusqueda(e.target.value)
+                    setClienteSeleccionado(null)
+                    setDropdownAbierto(true)
+                  }}
+                  onFocus={() => setDropdownAbierto(true)}
+                />
+                {busqueda && (
+                  <button className="cu-vd-input-clear" onClick={limpiarSeleccion}>
+                    <span className="material-icons-outlined">close</span>
+                  </button>
+                )}
+              </div>
+
+              {dropdownAbierto && busqueda.length > 0 && (
+                <ul className="cu-vd-dropdown">
+                  {clientesFiltrados.length > 0 ? (
+                    clientesFiltrados.map(c => (
+                      <li
+                        key={c.id}
+                        className={`cu-vd-dropdown-item ${clienteSeleccionado?.id === c.id ? 'cu-vd-item-active' : ''}`}
+                        onMouseDown={() => handleSeleccionar(c)}
+                      >
+                        <div className="cu-vd-avatar">
+                          {c.nombre.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="cu-vd-item-info">
+                          <p className="cu-vd-item-nombre">{c.nombre}</p>
+                          {c.telefono && <p className="cu-vd-item-tel">{c.telefono}</p>}
+                        </div>
+                        {c.is_compra_rapida && (
+                          <span className="cu-vd-tag-rapida">
+                            <span className="material-icons-outlined">bolt</span>Rápida
+                          </span>
+                        )}
+                        {clienteSeleccionado?.id === c.id && (
+                          <span className="material-icons-outlined cu-vd-item-check">check_circle</span>
+                        )}
+                      </li>
+                    ))
+                  ) : (
+                    <li className="cu-vd-dropdown-empty">
+                      <span className="material-icons-outlined">person_off</span>
+                      Sin resultados
+                    </li>
+                  )}
+                </ul>
+              )}
+            </div>
+
+            {clienteSeleccionado && (
+              <div className="cu-vd-selected">
+                <span className="material-icons-outlined">check_circle</span>
+                Cuenta a nombre de <strong>{clienteSeleccionado.nombre}</strong>
+              </div>
+            )}
+          </div>
+
+          {/* Atajo compra rápida */}
+          {clienteRapido && !clienteSeleccionado && (
+            <button
+              className="cu-vd-rapida-btn"
+              onClick={() => handleSeleccionar(clienteRapido)}
+            >
+              <span className="material-icons-outlined">bolt</span>
+              Usar Compra Rápida
+            </button>
+          )}
+
+        </div>
+
+        {/* ── Footer ── */}
+        <div className="cu-vd-footer">
+          <button className="cu-vd-btn-cancel" onClick={onCancelar}>
+            Cancelar
+          </button>
+          <button
+            className="cu-vd-btn-crear"
+            onClick={handleConfirmar}
+            disabled={creando}
+          >
+            <span className="material-icons-outlined">
+              {creando ? 'hourglass_top' : 'receipt_long'}
+            </span>
+            {creando ? 'Creando cuenta...' : 'Crear Cuenta'}
+          </button>
+        </div>
+
+      </div>
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════
+//  CUENTAS PRINCIPAL
+// ══════════════════════════════════════════════════════
 function Cuentas({ onNavegar }) {
   const [cuentas, setCuentas]               = useState([])
   const [cargando, setCargando]             = useState(true)
@@ -46,16 +238,19 @@ function Cuentas({ onNavegar }) {
   const [filtro, setFiltro]                 = useState('todos')
   const [, setTick]                         = useState(0)
 
-  // ── Navegación interna ──
+  // Navegación interna
   const [cuentaDetalle, setCuentaDetalle]   = useState(null)
   const [cuentaConsumo, setCuentaConsumo]   = useState(null)
   const [cuentaLiquidar, setCuentaLiquidar] = useState(null)
 
-  // ── Histórico ──
+  // Histórico
   const [mostrarHistorico, setMostrarHistorico] = useState(false)
   const [historico, setHistorico]               = useState([])
   const [loadingHistorico, setLoadingHistorico] = useState(false)
   const [busquedaHist, setBusquedaHist]         = useState('')
+
+  // Venta Directa
+  const [mostrarModalVD, setMostrarModalVD] = useState(false)
 
   const cargarCuentas = async () => {
     setCargando(true)
@@ -93,6 +288,37 @@ function Cuentas({ onNavegar }) {
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
+  }
+
+  // ── Crear cuenta venta directa ──
+  const handleCrearVentaDirecta = async (cliente) => {
+    const { data: sesion } = await supabase.auth.getSession()
+    const adminId = sesion?.session?.user?.id
+
+    const ahora     = new Date()
+    const offsetMs  = ahora.getTimezoneOffset() * 60000
+    const horaLocal = new Date(ahora.getTime() - offsetMs).toISOString().slice(0, -1) + '-05:00'
+
+    const { data: nuevaCuenta, error } = await supabase
+      .from('cuentas')
+      .insert({
+        mesa_id:       null,
+        cliente_id:    cliente?.id ?? null,
+        admin_id:      adminId,
+        hora_apertura: horaLocal,
+        estado:        'abierta',
+        subtotal_productos: 0,
+      })
+      .select('*, mesas(*), clientes(*)')
+      .single()
+
+    if (error || !nuevaCuenta) {
+      console.error('Error al crear venta directa:', error)
+      return
+    }
+
+    setMostrarModalVD(false)
+    setCuentaConsumo(nuevaCuenta)
   }
 
   // ── Render condicional ──
@@ -180,6 +406,14 @@ function Cuentas({ onNavegar }) {
 
   return (
     <div className="cu-root">
+
+      {/* ── MODAL VENTA DIRECTA ── */}
+      {mostrarModalVD && (
+        <ModalVentaDirecta
+          onConfirmar={handleCrearVentaDirecta}
+          onCancelar={() => setMostrarModalVD(false)}
+        />
+      )}
 
       {/* ── MODAL HISTÓRICO ── */}
       {mostrarHistorico && (
@@ -358,7 +592,7 @@ function Cuentas({ onNavegar }) {
               <button className="cu-btn-historico" onClick={abrirHistorico}>
                 <span className="material-icons-outlined">history</span>Ver Historial
               </button>
-              <button className="cu-btn-primary">
+              <button className="cu-btn-primary" onClick={() => setMostrarModalVD(true)}>
                 <span className="material-icons-outlined">add_shopping_cart</span>Venta Directa
               </button>
             </div>
