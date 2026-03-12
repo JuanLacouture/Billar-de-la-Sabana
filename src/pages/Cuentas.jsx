@@ -4,6 +4,9 @@ import './Cuentas.css'
 import ConsumoMesa from './ConsumoMesa'
 import DetalleCuenta from './DetalleCuenta'
 
+// ── FIX TIMEZONE: Siempre Bogotá ──
+const TZ = 'America/Bogota'
+
 function segundosAFormato(seg) {
   const h = Math.floor(seg / 3600)
   const m = Math.floor((seg % 3600) / 60)
@@ -43,11 +46,11 @@ const METODO_COLORS = {
 //  MODAL VENTA DIRECTA
 // ══════════════════════════════════════════════════════
 function ModalVentaDirecta({ onConfirmar, onCancelar }) {
-  const [clientes, setClientes]                         = useState([])
-  const [busqueda, setBusqueda]                         = useState('')
-  const [clienteSeleccionado, setClienteSeleccionado]   = useState(null)
-  const [dropdownAbierto, setDropdownAbierto]           = useState(false)
-  const [creando, setCreando]                           = useState(false)
+  const [clientes, setClientes]                       = useState([])
+  const [busqueda, setBusqueda]                       = useState('')
+  const [clienteSeleccionado, setClienteSeleccionado] = useState(null)
+  const [dropdownAbierto, setDropdownAbierto]         = useState(false)
+  const [creando, setCreando]                         = useState(false)
 
   useEffect(() => {
     supabase
@@ -57,12 +60,9 @@ function ModalVentaDirecta({ onConfirmar, onCancelar }) {
       .then(({ data }) => { if (data) setClientes(data) })
   }, [])
 
-  // Cerrar dropdown al hacer clic fuera
   useEffect(() => {
     const cerrar = (e) => {
-      if (!e.target.closest('.cu-vd-dropdown-wrapper')) {
-        setDropdownAbierto(false)
-      }
+      if (!e.target.closest('.cu-vd-dropdown-wrapper')) setDropdownAbierto(false)
     }
     document.addEventListener('mousedown', cerrar)
     return () => document.removeEventListener('mousedown', cerrar)
@@ -95,8 +95,6 @@ function ModalVentaDirecta({ onConfirmar, onCancelar }) {
   return (
     <div className="cu-vd-overlay" onClick={onCancelar}>
       <div className="cu-vd-modal" onClick={e => e.stopPropagation()}>
-
-        {/* ── Header ── */}
         <div className="cu-vd-header">
           <div className="cu-vd-header-left">
             <div className="cu-vd-icon">
@@ -112,9 +110,7 @@ function ModalVentaDirecta({ onConfirmar, onCancelar }) {
           </button>
         </div>
 
-        {/* ── Body ── */}
         <div className="cu-vd-body">
-
           <div className="cu-vd-info-row">
             <span className="material-icons-outlined">info</span>
             <span>Puedes dejar la cuenta abierta o liquidarla directamente.</span>
@@ -158,9 +154,7 @@ function ModalVentaDirecta({ onConfirmar, onCancelar }) {
                         className={`cu-vd-dropdown-item ${clienteSeleccionado?.id === c.id ? 'cu-vd-item-active' : ''}`}
                         onMouseDown={() => handleSeleccionar(c)}
                       >
-                        <div className="cu-vd-avatar">
-                          {c.nombre.charAt(0).toUpperCase()}
-                        </div>
+                        <div className="cu-vd-avatar">{c.nombre.charAt(0).toUpperCase()}</div>
                         <div className="cu-vd-item-info">
                           <p className="cu-vd-item-nombre">{c.nombre}</p>
                           {c.telefono && <p className="cu-vd-item-tel">{c.telefono}</p>}
@@ -193,36 +187,23 @@ function ModalVentaDirecta({ onConfirmar, onCancelar }) {
             )}
           </div>
 
-          {/* Atajo compra rápida */}
           {clienteRapido && !clienteSeleccionado && (
-            <button
-              className="cu-vd-rapida-btn"
-              onClick={() => handleSeleccionar(clienteRapido)}
-            >
+            <button className="cu-vd-rapida-btn" onClick={() => handleSeleccionar(clienteRapido)}>
               <span className="material-icons-outlined">bolt</span>
               Usar Compra Rápida
             </button>
           )}
-
         </div>
 
-        {/* ── Footer ── */}
         <div className="cu-vd-footer">
-          <button className="cu-vd-btn-cancel" onClick={onCancelar}>
-            Cancelar
-          </button>
-          <button
-            className="cu-vd-btn-crear"
-            onClick={handleConfirmar}
-            disabled={creando}
-          >
+          <button className="cu-vd-btn-cancel" onClick={onCancelar}>Cancelar</button>
+          <button className="cu-vd-btn-crear" onClick={handleConfirmar} disabled={creando}>
             <span className="material-icons-outlined">
               {creando ? 'hourglass_top' : 'receipt_long'}
             </span>
             {creando ? 'Creando cuenta...' : 'Crear Cuenta'}
           </button>
         </div>
-
       </div>
     </div>
   )
@@ -249,6 +230,14 @@ function Cuentas({ onNavegar }) {
   const [loadingHistorico, setLoadingHistorico] = useState(false)
   const [busquedaHist, setBusquedaHist]         = useState('')
 
+  // Filtros avanzados histórico
+  const [filtroMetodo, setFiltroMetodo]   = useState('todos')
+  const [filtroTipo, setFiltroTipo]       = useState('todos')
+  const [filtroPeriodo, setFiltroPeriodo] = useState('hoy')
+  const [filtroDesde, setFiltroDesde]     = useState('')
+  const [filtroHasta, setFiltroHasta]     = useState('')
+  const [ordenHist, setOrdenHist]         = useState('reciente')
+
   // Venta Directa
   const [mostrarModalVD, setMostrarModalVD] = useState(false)
 
@@ -270,7 +259,7 @@ function Cuentas({ onNavegar }) {
       .select(`*, mesas(numero, tipo), clientes(nombre)`)
       .eq('estado', 'liquidada')
       .order('hora_cierre', { ascending: false })
-      .limit(80)
+      .limit(300)
     if (data) setHistorico(data)
     setLoadingHistorico(false)
   }
@@ -278,6 +267,16 @@ function Cuentas({ onNavegar }) {
   const abrirHistorico = () => {
     cargarHistorico()
     setMostrarHistorico(true)
+  }
+
+  const resetFiltrosHistorico = () => {
+    setBusquedaHist('')
+    setFiltroMetodo('todos')
+    setFiltroTipo('todos')
+    setFiltroPeriodo('hoy')
+    setFiltroDesde('')
+    setFiltroHasta('')
+    setOrdenHist('reciente')
   }
 
   useEffect(() => {
@@ -290,33 +289,28 @@ function Cuentas({ onNavegar }) {
     await supabase.auth.signOut()
   }
 
-  // ── Crear cuenta venta directa ──
   const handleCrearVentaDirecta = async (cliente) => {
     const { data: sesion } = await supabase.auth.getSession()
     const adminId = sesion?.session?.user?.id
-
     const ahora     = new Date()
     const offsetMs  = ahora.getTimezoneOffset() * 60000
     const horaLocal = new Date(ahora.getTime() - offsetMs).toISOString().slice(0, -1) + '-05:00'
-
     const { data: nuevaCuenta, error } = await supabase
       .from('cuentas')
       .insert({
-        mesa_id:       null,
-        cliente_id:    cliente?.id ?? null,
-        admin_id:      adminId,
-        hora_apertura: horaLocal,
-        estado:        'abierta',
+        mesa_id:            null,
+        cliente_id:         cliente?.id ?? null,
+        admin_id:           adminId,
+        hora_apertura:      horaLocal,
+        estado:             'abierta',
         subtotal_productos: 0,
       })
       .select('*, mesas(*), clientes(*)')
       .single()
-
     if (error || !nuevaCuenta) {
       console.error('Error al crear venta directa:', error)
       return
     }
-
     setMostrarModalVD(false)
     setCuentaConsumo(nuevaCuenta)
   }
@@ -359,7 +353,7 @@ function Cuentas({ onNavegar }) {
     )
   }
 
-  // ── Filtros ──
+  // ── Filtros cuentas abiertas ──
   const cuentasFiltradas = cuentas.filter(c => {
     const nombre = c.clientes?.nombre?.toLowerCase() ?? ''
     const numero = String(c.mesas?.numero ?? '')
@@ -371,12 +365,55 @@ function Cuentas({ onNavegar }) {
     return matchBusqueda
   })
 
-  const historicoFiltrado = historico.filter(c => {
-    const q = busquedaHist.toLowerCase()
-    const nombre = c.clientes?.nombre?.toLowerCase() ?? ''
-    const numero = String(c.mesas?.numero ?? '')
-    return nombre.includes(q) || numero.includes(q)
-  })
+  // ── Filtros avanzados histórico ──
+  const historicoFiltrado = historico
+    .filter(c => {
+      const q      = busquedaHist.toLowerCase()
+      const nombre = c.clientes?.nombre?.toLowerCase() ?? ''
+      const numero = String(c.mesas?.numero ?? '')
+      const tipo   = c.mesas?.tipo?.toLowerCase() ?? ''
+      if (q && !nombre.includes(q) && !numero.includes(q) && !tipo.includes(q)) return false
+      if (filtroMetodo !== 'todos' && (c.metodo_pago ?? 'efectivo') !== filtroMetodo) return false
+      if (filtroTipo !== 'todos') {
+        if (filtroTipo === 'venta_directa' && c.mesa_id !== null) return false
+        if (filtroTipo !== 'venta_directa' && c.mesas?.tipo !== filtroTipo) return false
+      }
+      const fechaCierre = new Date(c.hora_cierre)
+      if (filtroPeriodo === 'hoy') {
+        const inicioDia = new Date()
+        inicioDia.setHours(0, 0, 0, 0)
+        if (fechaCierre < inicioDia) return false
+      } else if (filtroPeriodo === 'semana') {
+        const inicioSemana = new Date()
+        inicioSemana.setDate(inicioSemana.getDate() - 7)
+        inicioSemana.setHours(0, 0, 0, 0)
+        if (fechaCierre < inicioSemana) return false
+      } else if (filtroPeriodo === 'mes') {
+        const inicioMes = new Date()
+        inicioMes.setDate(1)
+        inicioMes.setHours(0, 0, 0, 0)
+        if (fechaCierre < inicioMes) return false
+      } else if (filtroPeriodo === 'personalizado') {
+        if (filtroDesde) {
+          const desde = new Date(filtroDesde + 'T00:00:00-05:00')
+          if (fechaCierre < desde) return false
+        }
+        if (filtroHasta) {
+          const hasta = new Date(filtroHasta + 'T23:59:59-05:00')
+          if (fechaCierre > hasta) return false
+        }
+      }
+      return true
+    })
+    .sort((a, b) => {
+      if (ordenHist === 'reciente') return new Date(b.hora_cierre) - new Date(a.hora_cierre)
+      if (ordenHist === 'antiguo')  return new Date(a.hora_cierre) - new Date(b.hora_cierre)
+      const tA = (a.subtotal_tiempo ?? 0) + (a.subtotal_productos ?? 0)
+      const tB = (b.subtotal_tiempo ?? 0) + (b.subtotal_productos ?? 0)
+      if (ordenHist === 'mayor') return tB - tA
+      if (ordenHist === 'menor') return tA - tB
+      return 0
+    })
 
   const totalAbierto = cuentas.reduce((acc, c) => {
     const seg = calcularSegundos(c.hora_apertura)
@@ -389,20 +426,40 @@ function Cuentas({ onNavegar }) {
   const formatCOP = (val) =>
     new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(val)
 
+  // ── FIX hora: timeZone explícito → siempre Colombia ──
   const horaApertura = (hora) => {
     if (!hora) return '--'
-    return new Date(hora).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
+    return new Date(hora).toLocaleTimeString('es-CO', {
+      hour: '2-digit', minute: '2-digit', timeZone: TZ,
+    })
   }
 
   const formatFecha = (iso) => {
     if (!iso) return '--'
-    return new Date(iso).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
+    return new Date(iso).toLocaleDateString('es-CO', {
+      day: '2-digit', month: 'short', year: 'numeric', timeZone: TZ,
+    })
   }
 
   const formatHora = (iso) => {
     if (!iso) return '--'
-    return new Date(iso).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
+    return new Date(iso).toLocaleTimeString('es-CO', {
+      hour: '2-digit', minute: '2-digit', timeZone: TZ,
+    })
   }
+
+  const filtrosActivos = [
+    filtroMetodo !== 'todos',
+    filtroTipo !== 'todos',
+    filtroPeriodo !== 'hoy',
+    busquedaHist.length > 0,
+  ].filter(Boolean).length
+
+  const totalFiltrado = historicoFiltrado.reduce(
+    (s, c) => s + (c.subtotal_tiempo ?? 0) + (c.subtotal_productos ?? 0), 0
+  )
+  const promedioFiltrado = historicoFiltrado.length > 0
+    ? totalFiltrado / historicoFiltrado.length : 0
 
   return (
     <div className="cu-root">
@@ -415,10 +472,14 @@ function Cuentas({ onNavegar }) {
         />
       )}
 
-      {/* ── MODAL HISTÓRICO ── */}
+      {/* ══════════════════════════════════════
+          MODAL HISTÓRICO
+      ══════════════════════════════════════ */}
       {mostrarHistorico && (
         <div className="cu-hist-overlay" onClick={() => setMostrarHistorico(false)}>
           <div className="cu-hist-modal" onClick={e => e.stopPropagation()}>
+
+            {/* Header */}
             <div className="cu-hist-header">
               <div className="cu-hist-title-row">
                 <div className="cu-hist-title-icon">
@@ -426,28 +487,159 @@ function Cuentas({ onNavegar }) {
                 </div>
                 <div>
                   <h3 className="cu-hist-title">Histórico de Cuentas</h3>
-                  <p className="cu-hist-sub">Cuentas liquidadas · {historico.length} registros</p>
+                  <p className="cu-hist-sub">
+                    {historicoFiltrado.length} de {historico.length} registros
+                    {filtrosActivos > 0 && (
+                      <> · <span className="cu-hist-sub-badge">{filtrosActivos} filtro{filtrosActivos > 1 ? 's' : ''}</span></>
+                    )}
+                  </p>
                 </div>
               </div>
-              <button className="cu-hist-close" onClick={() => setMostrarHistorico(false)}>
-                <span className="material-icons-outlined">close</span>
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                {filtrosActivos > 0 && (
+                  <button className="cu-hist-btn-reset" onClick={resetFiltrosHistorico}>
+                    <span className="material-icons-outlined">filter_alt_off</span>
+                    Limpiar
+                  </button>
+                )}
+                <button className="cu-hist-close" onClick={() => setMostrarHistorico(false)}>
+                  <span className="material-icons-outlined">close</span>
+                </button>
+              </div>
             </div>
 
+            {/* Search + Sort */}
             <div className="cu-hist-search-row">
               <div className="cu-hist-search-wrap">
                 <span className="material-icons-outlined cu-hist-search-icon">search</span>
                 <input
                   className="cu-hist-search"
                   type="text"
-                  placeholder="Buscar cliente o mesa..."
+                  placeholder="Buscar cliente, mesa o tipo..."
                   value={busquedaHist}
                   onChange={e => setBusquedaHist(e.target.value)}
                 />
+                {busquedaHist && (
+                  <button className="cu-hist-search-clear" onClick={() => setBusquedaHist('')}>
+                    <span className="material-icons-outlined">close</span>
+                  </button>
+                )}
               </div>
-              <span className="cu-hist-count">{historicoFiltrado.length} resultados</span>
+              <select
+                className="cu-hist-select"
+                value={ordenHist}
+                onChange={e => setOrdenHist(e.target.value)}
+              >
+                <option value="reciente">↓ Más reciente</option>
+                <option value="antiguo">↑ Más antiguo</option>
+                <option value="mayor">↓ Mayor total</option>
+                <option value="menor">↑ Menor total</option>
+              </select>
             </div>
 
+            {/* ── Filtros Avanzados ── */}
+            <div className="cu-hist-filters">
+
+              <div className="cu-hist-filter-group">
+                <span className="cu-hist-filter-label">
+                  <span className="material-icons-outlined">calendar_today</span>
+                  Período
+                </span>
+                <div className="cu-hist-chips">
+                  {[
+                    { key: 'hoy',           label: 'Hoy' },
+                    { key: 'semana',        label: 'Semana' },
+                    { key: 'mes',           label: 'Este mes' },
+                    { key: 'todos',         label: 'Todos' },
+                    { key: 'personalizado', label: 'Personalizado' },
+                  ].map(p => (
+                    <button
+                      key={p.key}
+                      className={`cu-hist-chip ${filtroPeriodo === p.key ? 'cu-hist-chip-active' : ''}`}
+                      onClick={() => setFiltroPeriodo(p.key)}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {filtroPeriodo === 'personalizado' && (
+                <div className="cu-hist-dates">
+                  <div className="cu-hist-date-wrap">
+                    <label>Desde</label>
+                    <input
+                      type="date"
+                      className="cu-hist-date-input"
+                      value={filtroDesde}
+                      onChange={e => setFiltroDesde(e.target.value)}
+                    />
+                  </div>
+                  <div className="cu-hist-date-wrap">
+                    <label>Hasta</label>
+                    <input
+                      type="date"
+                      className="cu-hist-date-input"
+                      value={filtroHasta}
+                      onChange={e => setFiltroHasta(e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="cu-hist-filter-group">
+                <span className="cu-hist-filter-label">
+                  <span className="material-icons-outlined">payments</span>
+                  Método
+                </span>
+                <div className="cu-hist-chips">
+                  {[
+                    { key: 'todos',     label: 'Todos' },
+                    { key: 'efectivo',  label: 'Efectivo' },
+                    { key: 'nequi',     label: 'Nequi' },
+                    { key: 'daviplata', label: 'Daviplata' },
+                    { key: 'bold',      label: 'Bold' },
+                  ].map(m => (
+                    <button
+                      key={m.key}
+                      className={`cu-hist-chip ${filtroMetodo === m.key ? 'cu-hist-chip-active' : ''}`}
+                      onClick={() => setFiltroMetodo(m.key)}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="cu-hist-filter-group">
+                <span className="cu-hist-filter-label">
+                  <span className="material-icons-outlined">sports_esports</span>
+                  Tipo
+                </span>
+                <div className="cu-hist-chips">
+                  {[
+                    { key: 'todos',          label: 'Todos' },
+                    { key: '3 Bandas',       label: '3 Bandas' },
+                    { key: 'Pool',           label: 'Pool' },
+                    { key: 'Mano de Cartas', label: 'Cartas' },
+                    { key: 'Libre',          label: 'Libre' },
+                    { key: 'Bolirana',       label: 'Bolirana' },
+                    { key: 'venta_directa',  label: 'Venta Directa' },
+                  ].map(t => (
+                    <button
+                      key={t.key}
+                      className={`cu-hist-chip ${filtroTipo === t.key ? 'cu-hist-chip-active' : ''}`}
+                      onClick={() => setFiltroTipo(t.key)}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+
+            {/* Body - Tabla */}
             <div className="cu-hist-body">
               {loadingHistorico ? (
                 <div className="cu-hist-loading">
@@ -457,7 +649,13 @@ function Cuentas({ onNavegar }) {
               ) : historicoFiltrado.length === 0 ? (
                 <div className="cu-hist-empty">
                   <span className="material-icons-outlined">receipt_long</span>
-                  <p>No hay cuentas en el historial.</p>
+                  <p>No hay cuentas con los filtros aplicados.</p>
+                  {filtrosActivos > 0 && (
+                    <button className="cu-hist-btn-reset-empty" onClick={resetFiltrosHistorico}>
+                      <span className="material-icons-outlined">filter_alt_off</span>
+                      Limpiar filtros
+                    </button>
+                  )}
                 </div>
               ) : (
                 <table className="cu-hist-table">
@@ -512,23 +710,29 @@ function Cuentas({ onNavegar }) {
               )}
             </div>
 
+            {/* Footer */}
             <div className="cu-hist-footer">
               <div className="cu-hist-footer-stats">
                 <div className="cu-hist-stat">
                   <span>Total recaudado</span>
-                  <strong>
-                    {formatCOP(historico.reduce((s, c) => s + (c.subtotal_tiempo ?? 0) + (c.subtotal_productos ?? 0), 0))}
-                  </strong>
+                  <strong>{formatCOP(totalFiltrado)}</strong>
                 </div>
                 <div className="cu-hist-stat">
-                  <span>Cuentas cerradas</span>
-                  <strong>{historico.length}</strong>
+                  <span>Cuentas</span>
+                  <strong>{historicoFiltrado.length}</strong>
                 </div>
+                {historicoFiltrado.length > 0 && (
+                  <div className="cu-hist-stat">
+                    <span>Promedio</span>
+                    <strong>{formatCOP(promedioFiltrado)}</strong>
+                  </div>
+                )}
               </div>
               <button className="cu-hist-btn-cerrar" onClick={() => setMostrarHistorico(false)}>
                 Cerrar
               </button>
             </div>
+
           </div>
         </div>
       )}
