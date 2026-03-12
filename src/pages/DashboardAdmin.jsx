@@ -4,11 +4,11 @@ import ConsumoMesa from './ConsumoMesa'
 import './DashboardAdmin.css'
 
 const colorTipo = {
-  '3 Bandas':      'blue',
-  'Pool':          'green',
-  'Mano de Cartas':'red',
-  'Libre':         'purple',
-  'Bolirana':      'orange',
+  '3 Bandas':       'blue',
+  'Pool':           'green',
+  'Mano de Cartas': 'red',
+  'Libre':          'purple',
+  'Bolirana':       'orange',
 }
 
 function segundosAFormato(seg) {
@@ -25,21 +25,22 @@ function calcularSegundos(horaInicio) {
 }
 
 function calcularValor(horaInicio, precioMinuto) {
-  const seg = calcularSegundos(horaInicio)
+  const seg     = calcularSegundos(horaInicio)
   const minutos = seg / 60
-  const total = minutos * precioMinuto
   return new Intl.NumberFormat('es-CO', {
     style: 'currency', currency: 'COP', maximumFractionDigits: 0,
-  }).format(total)
+  }).format(minutos * precioMinuto)
 }
 
-// ── Modal Iniciar Mesa ───────────────────────────────────────────────
+// ══════════════════════════════════════════════
+//  MODAL INICIAR MESA
+// ══════════════════════════════════════════════
 function ModalIniciarMesa({ mesa, onConfirmar, onCancelar }) {
-  const [clientes, setClientes] = useState([])
-  const [busqueda, setBusqueda] = useState('')
+  const [clientes, setClientes]                       = useState([])
+  const [busqueda, setBusqueda]                       = useState('')
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null)
-  const [dropdownAbierto, setDropdownAbierto] = useState(false)
-  const [guardando, setGuardando] = useState(false)
+  const [dropdownAbierto, setDropdownAbierto]         = useState(false)
+  const [guardando, setGuardando]                     = useState(false)
 
   const horaTexto = new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
 
@@ -146,15 +147,198 @@ function ModalIniciarMesa({ mesa, onConfirmar, onCancelar }) {
   )
 }
 
-// ── Dashboard ────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════
+//  MODAL NUEVA CUENTA (Venta Directa)
+// ══════════════════════════════════════════════
+function ModalNuevaCuenta({ onConfirmar, onCancelar }) {
+  const [clientes, setClientes]                         = useState([])
+  const [busqueda, setBusqueda]                         = useState('')
+  const [clienteSeleccionado, setClienteSeleccionado]   = useState(null)
+  const [dropdownAbierto, setDropdownAbierto]           = useState(false)
+  const [creando, setCreando]                           = useState(false)
+
+  useEffect(() => {
+    supabase
+      .from('clientes')
+      .select('id, nombre, telefono, is_compra_rapida')
+      .order('nombre', { ascending: true })
+      .then(({ data }) => { if (data) setClientes(data) })
+  }, [])
+
+  useEffect(() => {
+    const cerrar = (e) => {
+      if (!e.target.closest('.da-vd-dropdown-wrapper')) {
+        setDropdownAbierto(false)
+      }
+    }
+    document.addEventListener('mousedown', cerrar)
+    return () => document.removeEventListener('mousedown', cerrar)
+  }, [])
+
+  const clientesFiltrados = clientes.filter(c =>
+    c.nombre.toLowerCase().includes(busqueda.toLowerCase())
+  )
+
+  const handleSeleccionar = (cliente) => {
+    setClienteSeleccionado(cliente)
+    setBusqueda(cliente.nombre)
+    setDropdownAbierto(false)
+  }
+
+  const limpiar = () => {
+    setClienteSeleccionado(null)
+    setBusqueda('')
+    setDropdownAbierto(false)
+  }
+
+  const handleConfirmar = async () => {
+    setCreando(true)
+    await onConfirmar(clienteSeleccionado)
+    setCreando(false)
+  }
+
+  const clienteRapido = clientes.find(c => c.is_compra_rapida)
+
+  return (
+    <div className="da-modal-backdrop" onClick={onCancelar}>
+      <div className="da-vd-modal" onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="da-vd-header">
+          <div className="da-vd-header-left">
+            <div className="da-vd-icon">
+              <span className="material-icons-outlined">add_shopping_cart</span>
+            </div>
+            <div>
+              <h3 className="da-vd-title">Nueva Cuenta</h3>
+              <p className="da-vd-sub">Sin mesa · Solo productos</p>
+            </div>
+          </div>
+          <button className="da-vd-close" onClick={onCancelar}>
+            <span className="material-icons-outlined">close</span>
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="da-vd-body">
+
+          <div className="da-vd-info-row">
+            <span className="material-icons-outlined" style={{ fontSize: '1rem', flexShrink: 0, width: '1rem', height: '1rem', overflow: 'hidden' }}>info</span>
+            <span>Puedes dejar la cuenta abierta o liquidarla directamente.</span>
+          </div>
+
+          <div className="da-vd-field">
+            <label className="da-vd-label">
+              <span className="material-icons-outlined">person_search</span>
+              Asignar cliente
+              <span className="da-vd-optional">· opcional</span>
+            </label>
+
+            <div className="da-vd-dropdown-wrapper">
+              <div className="da-vd-input-wrap">
+                <span className="material-icons-outlined da-vd-input-icon">search</span>
+                <input
+                  className="da-vd-input"
+                  type="text"
+                  placeholder="Buscar por nombre..."
+                  value={busqueda}
+                  onChange={e => {
+                    setBusqueda(e.target.value)
+                    setClienteSeleccionado(null)
+                    setDropdownAbierto(true)
+                  }}
+                  onFocus={() => setDropdownAbierto(true)}
+                />
+                {busqueda && (
+                  <button className="da-vd-input-clear" onClick={limpiar}>
+                    <span className="material-icons-outlined">close</span>
+                  </button>
+                )}
+              </div>
+
+              {dropdownAbierto && busqueda.length > 0 && (
+                <ul className="da-vd-dropdown">
+                  {clientesFiltrados.length > 0 ? (
+                    clientesFiltrados.map(c => (
+                      <li
+                        key={c.id}
+                        className={`da-vd-dropdown-item ${clienteSeleccionado?.id === c.id ? 'da-vd-item-active' : ''}`}
+                        onMouseDown={() => handleSeleccionar(c)}
+                      >
+                        <div className="da-vd-avatar">
+                          {c.nombre.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="da-vd-item-info">
+                          <p className="da-vd-item-nombre">{c.nombre}</p>
+                          {c.telefono && <p className="da-vd-item-tel">{c.telefono}</p>}
+                        </div>
+                        {c.is_compra_rapida && (
+                          <span className="da-vd-tag-rapida">
+                            <span className="material-icons-outlined">bolt</span>Rápida
+                          </span>
+                        )}
+                        {clienteSeleccionado?.id === c.id && (
+                          <span className="material-icons-outlined da-vd-item-check">check_circle</span>
+                        )}
+                      </li>
+                    ))
+                  ) : (
+                    <li className="da-vd-dropdown-empty">
+                      <span className="material-icons-outlined">person_off</span>
+                      Sin resultados
+                    </li>
+                  )}
+                </ul>
+              )}
+            </div>
+
+            {clienteSeleccionado && (
+              <div className="da-vd-selected">
+                <span className="material-icons-outlined">check_circle</span>
+                Cuenta a nombre de <strong>{clienteSeleccionado.nombre}</strong>
+              </div>
+            )}
+          </div>
+
+          {clienteRapido && !clienteSeleccionado && (
+            <button className="da-vd-rapida-btn" onClick={() => handleSeleccionar(clienteRapido)}>
+              <span className="material-icons-outlined">bolt</span>
+              Usar Compra Rápida
+            </button>
+          )}
+
+        </div>
+
+        {/* Footer */}
+        <div className="da-vd-footer">
+          <button className="da-vd-btn-cancel" onClick={onCancelar}>
+            Cancelar
+          </button>
+          <button className="da-vd-btn-crear" onClick={handleConfirmar} disabled={creando}>
+            <span className="material-icons-outlined">
+              {creando ? 'hourglass_top' : 'receipt_long'}
+            </span>
+            {creando ? 'Creando cuenta...' : 'Crear Cuenta'}
+          </button>
+        </div>
+
+      </div>
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════
+//  DASHBOARD PRINCIPAL
+// ══════════════════════════════════════════════
 function DashboardAdmin({ onNavegar }) {
-  const [mesas, setMesas]               = useState([])
-  const [filtro, setFiltro]             = useState('Todo')
-  const [cargando, setCargando]         = useState(true)
-  const [, setTick]                     = useState(0)
-  const [modalMesa, setModalMesa]       = useState(null)
-  const [cuentaConsumo, setCuentaConsumo] = useState(null)
-  const [liquidarDirecto, setLiquidarDirecto] = useState(false)  // ← nuevo
+  const [mesas, setMesas]                           = useState([])
+  const [filtro, setFiltro]                         = useState('Todo')
+  const [cargando, setCargando]                     = useState(true)
+  const [, setTick]                                 = useState(0)
+  const [modalMesa, setModalMesa]                   = useState(null)
+  const [cuentaConsumo, setCuentaConsumo]           = useState(null)
+  const [liquidarDirecto, setLiquidarDirecto]       = useState(false)
+  const [mostrarModalNC, setMostrarModalNC]         = useState(false)   // ← Nueva Cuenta
 
   const cargarMesas = async () => {
     setCargando(true)
@@ -177,8 +361,8 @@ function DashboardAdmin({ onNavegar }) {
   const cerrarModal = () => setModalMesa(null)
 
   const confirmarInicio = async (mesa, cliente) => {
-    const ahora    = new Date()
-    const offsetMs = ahora.getTimezoneOffset() * 60000
+    const ahora     = new Date()
+    const offsetMs  = ahora.getTimezoneOffset() * 60000
     const horaLocal = new Date(ahora.getTime() - offsetMs).toISOString().slice(0, -1) + '-05:00'
 
     const { data: sesion } = await supabase.auth.getSession()
@@ -202,12 +386,42 @@ function DashboardAdmin({ onNavegar }) {
       })
 
     if (errorCuenta) console.error('Error al crear cuenta:', errorCuenta)
-
     cerrarModal()
     cargarMesas()
   }
 
-  // ── Construye el objeto cuenta con mesa_id garantizado ──
+  // ── Crear cuenta venta directa desde dashboard ──
+  const handleCrearNuevaCuenta = async (cliente) => {
+    const { data: sesion } = await supabase.auth.getSession()
+    const adminId = sesion?.session?.user?.id
+
+    const ahora     = new Date()
+    const offsetMs  = ahora.getTimezoneOffset() * 60000
+    const horaLocal = new Date(ahora.getTime() - offsetMs).toISOString().slice(0, -1) + '-05:00'
+
+    const { data: nuevaCuenta, error } = await supabase
+      .from('cuentas')
+      .insert({
+        mesa_id:            null,
+        cliente_id:         cliente?.id ?? null,
+        admin_id:           adminId,
+        hora_apertura:      horaLocal,
+        estado:             'abierta',
+        subtotal_productos: 0,
+      })
+      .select('*, mesas(*), clientes(*)')
+      .single()
+
+    if (error || !nuevaCuenta) {
+      console.error('Error al crear cuenta directa:', error)
+      return
+    }
+
+    setMostrarModalNC(false)
+    setLiquidarDirecto(false)
+    setCuentaConsumo(nuevaCuenta)
+  }
+
   const buildCuenta = (mesa) => {
     const cuentaAbierta = mesa.cuentas?.find(c => c.estado === 'abierta')
     if (!cuentaAbierta) return null
@@ -223,7 +437,6 @@ function DashboardAdmin({ onNavegar }) {
     }
   }
 
-  // 🟡 Botón consumo → entra a ConsumoMesa normal
   const abrirConsumo = (mesa) => {
     const cuenta = buildCuenta(mesa)
     if (!cuenta) return
@@ -231,7 +444,6 @@ function DashboardAdmin({ onNavegar }) {
     setCuentaConsumo(cuenta)
   }
 
-  // 🔴 Botón stop → entra directo a LiquidarCuenta
   const abrirLiquidar = (mesa) => {
     const cuenta = buildCuenta(mesa)
     if (!cuenta) return
@@ -280,7 +492,6 @@ function DashboardAdmin({ onNavegar }) {
     return () => clearInterval(intervalo)
   }, [])
 
-  // ← Renderiza ConsumoMesa pasando el flag irALiquidar
   if (cuentaConsumo) {
     return (
       <ConsumoMesa
@@ -302,13 +513,14 @@ function DashboardAdmin({ onNavegar }) {
   const handleLogout = async () => { await supabase.auth.signOut() }
 
   const clienteNombre = (mesa) => {
-    const cuentaAbierta = mesa.cuentas?.find(c => c.estado === 'abierta')
-    return cuentaAbierta?.clientes?.nombre ?? null
+    const c = mesa.cuentas?.find(c => c.estado === 'abierta')
+    return c?.clientes?.nombre ?? null
   }
 
   return (
     <div className="da-root">
 
+      {/* Modal iniciar mesa */}
       {modalMesa && (
         <ModalIniciarMesa
           mesa={modalMesa}
@@ -317,7 +529,15 @@ function DashboardAdmin({ onNavegar }) {
         />
       )}
 
-      {/* Sidebar */}
+      {/* Modal nueva cuenta */}
+      {mostrarModalNC && (
+        <ModalNuevaCuenta
+          onConfirmar={handleCrearNuevaCuenta}
+          onCancelar={() => setMostrarModalNC(false)}
+        />
+      )}
+
+      {/* ── SIDEBAR ── */}
       <aside className="da-sidebar">
         <div className="da-sidebar-logo">
           <span className="material-icons-outlined da-sidebar-icon">sports_esports</span>
@@ -357,7 +577,7 @@ function DashboardAdmin({ onNavegar }) {
         </div>
       </aside>
 
-      {/* Main */}
+      {/* ── MAIN ── */}
       <main className="da-main">
         <header className="da-mobile-header">
           <span className="da-mobile-script">Sabana</span>
@@ -374,7 +594,7 @@ function DashboardAdmin({ onNavegar }) {
               <button className="da-btn-secondary" onClick={cargarMesas}>
                 <span className="material-icons-outlined">refresh</span> Actualizar
               </button>
-              <button className="da-btn-primary">
+              <button className="da-btn-primary" onClick={() => setMostrarModalNC(true)}>
                 <span className="material-icons-outlined">add</span> Nueva Cuenta
               </button>
             </div>
@@ -522,7 +742,6 @@ function DashboardAdmin({ onNavegar }) {
                     <div className="da-mesa-overlay">
                       {ocupada ? (
                         <>
-                          {/* 🟡 Consumo normal */}
                           <button
                             className="da-overlay-btn da-overlay-gold"
                             title="Agregar consumo"
@@ -530,7 +749,6 @@ function DashboardAdmin({ onNavegar }) {
                           >
                             <span className="material-icons-outlined">local_bar</span>
                           </button>
-                          {/* 🔴 Directo a liquidar */}
                           <button
                             className="da-overlay-btn da-overlay-red"
                             title="Liquidar cuenta"
