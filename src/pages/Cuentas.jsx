@@ -734,7 +734,7 @@ function Cuentas({ onNavegar }) {
           <a className="cu-nav-item" onClick={() => onNavegar('dashboard')}>
             <span className="material-icons-outlined">dashboard</span>Dashboard
           </a>
-          <a className="cu-nav-item">
+          <a href="#" className="da-nav-item" onClick={e => { e.preventDefault(); onNavegar('Inventario') }}>
             <span className="material-icons-outlined">inventory_2</span>Inventario
           </a>
           <a className="cu-nav-item cu-nav-active">

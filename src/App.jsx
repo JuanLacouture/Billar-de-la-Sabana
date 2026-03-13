@@ -4,7 +4,8 @@ import Login from './pages/Login'
 import VerificacionTurno from './pages/VerificacionTurno'
 import DashboardAdmin from './pages/DashboardAdmin'
 import Cuentas from './pages/Cuentas'
-import Clientes from './pages/Clientes'   // ← asegúrate que la ruta sea correcta
+import Clientes from './pages/Clientes'
+import Inventario from './pages/Inventario'
 
 
 function App() {
@@ -75,8 +76,9 @@ function App() {
   if (!session) return <Login />
   if (rol === 'admin' && !turnoIniciado) return <VerificacionTurno onTurnoIniciado={handleTurnoIniciado} />
   if (rol === 'admin' && turnoIniciado) {
-    if (pagina === 'cuentas')   return <Cuentas   onNavegar={setPagina} />
-    if (pagina === 'clientes')  return <Clientes  onNavegar={setPagina} />  // ← NUEVO
+    if (pagina === 'cuentas')    return <Cuentas    onNavegar={setPagina} />
+    if (pagina === 'clientes')   return <Clientes   onNavegar={setPagina} />
+    if (pagina === 'Inventario') return <Inventario onNavegar={setPagina} />
     return <DashboardAdmin onNavegar={setPagina} />
   }
 

@@ -551,7 +551,7 @@ function DashboardAdmin({ onNavegar }) {
           <a href="#" className="da-nav-item da-nav-active">
             <span className="material-icons-outlined">dashboard</span>Dashboard
           </a>
-          <a href="#" className="da-nav-item">
+          <a href="#" className="da-nav-item" onClick={e => { e.preventDefault(); onNavegar('Inventario') }}>
             <span className="material-icons-outlined">inventory_2</span>Inventario
           </a>
           <a href="#" className="da-nav-item" onClick={e => { e.preventDefault(); onNavegar('cuentas') }}>
