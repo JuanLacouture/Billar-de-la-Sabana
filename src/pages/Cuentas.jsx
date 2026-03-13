@@ -3,6 +3,8 @@ import { supabase } from '../supabaseClient'
 import './Cuentas.css'
 import ConsumoMesa from './ConsumoMesa'
 import DetalleCuenta from './DetalleCuenta'
+import Sidebar from './Sidebar'
+
 
 function segundosAFormato(seg) {
   const h = Math.floor(seg / 3600)
@@ -721,44 +723,8 @@ function Cuentas({ onNavegar }) {
       )}
 
       {/* ── SIDEBAR ── */}
-      <aside className="cu-sidebar">
-        <div className="cu-sidebar-logo">
-          <span className="material-icons-outlined cu-sidebar-icon">sports_esports</span>
-          <div>
-            <h1 className="cu-sidebar-title">Club de Billar</h1>
-            <span className="cu-sidebar-script">Sabana</span>
-          </div>
-        </div>
+      <Sidebar paginaActual="dashboard" onNavegar={onNavegar} />
 
-        <nav className="cu-nav">
-          <a className="cu-nav-item" onClick={() => onNavegar('dashboard')}>
-            <span className="material-icons-outlined">dashboard</span>Dashboard
-          </a>
-          <a href="#" className="da-nav-item" onClick={e => { e.preventDefault(); onNavegar('Inventario') }}>
-            <span className="material-icons-outlined">inventory_2</span>Inventario
-          </a>
-          <a className="cu-nav-item cu-nav-active">
-            <span className="material-icons-outlined">receipt_long</span>Cuentas
-          </a>
-          <a className="cu-nav-item">
-            <span className="material-icons-outlined">bar_chart</span>Reportes
-          </a>
-          <a className="cu-nav-item" onClick={() => onNavegar('clientes')}>
-            <span className="material-icons-outlined">people</span>Clientes
-          </a>
-        </nav>
-
-        <div className="cu-sidebar-footer">
-          <button className="cu-user-btn" onClick={handleLogout}>
-            <div className="cu-user-avatar">A</div>
-            <div className="cu-user-info">
-              <p className="cu-user-name">Admin</p>
-              <p className="cu-user-role">Gerente</p>
-            </div>
-            <span className="material-icons-outlined">settings</span>
-          </button>
-        </div>
-      </aside>
 
       {/* ── MAIN ── */}
       <main className="cu-main">

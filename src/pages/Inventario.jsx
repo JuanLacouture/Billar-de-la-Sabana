@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabaseClient'
 import './Inventario.css'
+import Sidebar from './Sidebar'
 
 const CAT_STYLE = {
   'Cervezas':    'cat-amber',
@@ -474,29 +475,8 @@ function Inventario({ onNavegar }) {
       {modalEditar && <ModalProducto producto={modalEditar} categorias={categorias} onGuardar={onGuardar} onCerrar={() => setModalEditar(null)} />}
 
       {/* ════ SIDEBAR ════ */}
-      <aside className="inv-sidebar">
-        <div className="inv-sidebar-logo">
-          <span className="material-icons-outlined inv-sidebar-icon">sports_esports</span>
-          <div>
-            <h1 className="inv-sidebar-title">Club de Billar</h1>
-            <span className="inv-sidebar-script">Sabana</span>
-          </div>
-        </div>
-        <nav className="inv-nav">
-          <a className="inv-nav-item" onClick={() => onNavegar?.('dashboard')}><span className="material-icons-outlined">dashboard</span>Dashboard</a>
-          <a className="inv-nav-item inv-nav-active"><span className="material-icons-outlined">inventory_2</span>Inventario</a>
-          <a className="inv-nav-item" onClick={() => onNavegar?.('cuentas')}><span className="material-icons-outlined">receipt_long</span>Cuentas</a>
-          <a className="inv-nav-item"><span className="material-icons-outlined">bar_chart</span>Reportes</a>
-          <a className="inv-nav-item" onClick={() => onNavegar?.('clientes')}><span className="material-icons-outlined">people</span>Clientes</a>
-        </nav>
-        <div className="inv-sidebar-footer">
-          <button className="inv-user-btn" onClick={() => supabase.auth.signOut()}>
-            <div className="inv-user-avatar">A</div>
-            <div className="inv-user-info"><p className="inv-user-name">Admin</p><p className="inv-user-role">Gerente</p></div>
-            <span className="material-icons-outlined">settings</span>
-          </button>
-        </div>
-      </aside>
+      <Sidebar paginaActual="dashboard" onNavegar={onNavegar} />
+
 
       {/* ════ MAIN ════ */}
       <main className="inv-main">

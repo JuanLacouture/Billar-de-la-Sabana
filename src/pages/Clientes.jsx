@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import './Clientes.css'
+import Sidebar from './Sidebar'
 
 // ── Helpers avatar ───────────────────────────────────────────────────
 const avatarColors = [
@@ -370,44 +371,8 @@ iframe.onload = () => {
         />
       )}
 
-      <aside className="cl-sidebar">
-        <div className="cl-sidebar-logo">
-          <span className="material-icons-outlined cl-sidebar-icon">sports_esports</span>
-          <div>
-            <h1 className="cl-sidebar-title">Club de Billar</h1>
-            <span className="cl-sidebar-script">Sabana</span>
-          </div>
-        </div>
+      <Sidebar paginaActual="dashboard" onNavegar={onNavegar} />
 
-        <nav className="cl-nav">
-          <a className="cl-nav-item" onClick={() => onNavegar('dashboard')}>
-            <span className="material-icons-outlined">dashboard</span>Dashboard
-          </a>
-          <a href="#" className="da-nav-item" onClick={e => { e.preventDefault(); onNavegar('Inventario') }}>
-            <span className="material-icons-outlined">inventory_2</span>Inventario
-          </a>
-          <a className="cl-nav-item" onClick={() => onNavegar('cuentas')}>
-            <span className="material-icons-outlined">receipt_long</span>Cuentas
-          </a>
-          <a className="cl-nav-item">
-            <span className="material-icons-outlined">bar_chart</span>Reportes
-          </a>
-          <a className="cl-nav-item cl-nav-active">
-            <span className="material-icons-outlined">people</span>Clientes
-          </a>
-        </nav>
-
-        <div className="cl-sidebar-footer">
-          <button className="cl-user-btn" onClick={handleLogout}>
-            <div className="cl-user-avatar">A</div>
-            <div className="cl-user-info">
-              <p className="cl-user-name">Admin</p>
-              <p className="cl-user-role">Gerente</p>
-            </div>
-            <span className="material-icons-outlined">settings</span>
-          </button>
-        </div>
-      </aside>
 
       <main className="cl-main">
         <header className="cl-mobile-header">
