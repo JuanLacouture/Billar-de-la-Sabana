@@ -624,14 +624,16 @@
   padding: 0.875rem 1.25rem;
   background: #f9fafb;
   border-bottom: 1px solid #e5e7eb;
-  gap: 1rem;
+  gap: 0.75rem;
   flex-shrink: 0;
+  flex-wrap: wrap;
 }
 
 .cu-hist-search-wrap {
   position: relative;
   flex: 1;
-  max-width: 320px;
+  min-width: 180px;
+  max-width: 340px;
 }
 .cu-hist-search-icon {
   position: absolute;
@@ -643,7 +645,7 @@
 }
 .cu-hist-search {
   width: 100%;
-  padding: 0.45rem 0.875rem 0.45rem 2.4rem;
+  padding: 0.45rem 2.2rem 0.45rem 2.4rem;
   border-radius: 0.5rem;
   border: 1px solid #e5e7eb;
   background: #ffffff;
@@ -653,12 +655,49 @@
   transition: all 0.2s;
   font-family: 'Lato', sans-serif;
   box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  box-sizing: border-box;
 }
 .cu-hist-search:focus {
   border-color: #D4AF37;
   box-shadow: 0 0 0 3px rgba(212,175,55,0.1);
 }
 .cu-hist-search::placeholder { color: #d1d5db; }
+
+.cu-hist-search-clear {
+  position: absolute;
+  right: 0.5rem; top: 50%;
+  transform: translateY(-50%);
+  width: 20px; height: 20px;
+  border: none; background: #e5e7eb;
+  border-radius: 50%; color: #6b7280;
+  cursor: pointer; display: flex;
+  align-items: center; justify-content: center;
+  transition: all 0.15s; padding: 0;
+}
+.cu-hist-search-clear:hover { background: #d1d5db; color: #111827; }
+.cu-hist-search-clear .material-icons-outlined { font-size: 0.75rem !important; }
+
+/* Botón toggle filtros */
+.cu-hist-filtros-btn {
+  display: flex; align-items: center; gap: 0.375rem;
+  padding: 0.45rem 0.875rem;
+  border: 1.5px solid #e5e7eb; border-radius: 0.5rem;
+  background: #fff; color: #374151;
+  font-family: 'Lato', sans-serif; font-size: 0.75rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  cursor: pointer; transition: all 0.18s; position: relative;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  white-space: nowrap;
+}
+.cu-hist-filtros-btn:hover { border-color: #D4AF37; color: #b8962e; background: rgba(212,175,55,0.04); }
+.cu-hist-filtros-btn-active { border-color: #D4AF37; color: #b8962e; background: rgba(212,175,55,0.08); }
+.cu-hist-filtros-btn .material-icons-outlined { font-size: 1rem !important; }
+
+.cu-hist-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #D4AF37; display: inline-block;
+  margin-left: 0.1rem;
+}
 
 .cu-hist-count {
   font-size: 0.72rem;
@@ -668,6 +707,103 @@
   letter-spacing: 0.06em;
   white-space: nowrap;
 }
+
+/* ── Panel de filtros avanzados ── */
+.cu-hist-filtros-panel {
+  padding: 1rem 1.5rem 0.875rem;
+  background: #fefce8;
+  border-bottom: 1px solid #fde68a;
+  flex-shrink: 0;
+  animation: cu-fade-in 0.15s ease;
+}
+
+.cu-hist-filtros-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 2rem;
+  align-items: flex-start;
+}
+
+.cu-hist-filtro-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.cu-hist-filtro-label {
+  display: flex; align-items: center; gap: 0.3rem;
+  font-size: 0.68rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.07em;
+  color: #78350f;
+}
+.cu-hist-filtro-label .material-icons-outlined { font-size: 0.875rem !important; color: #D4AF37; }
+
+.cu-hist-filtro-tabs {
+  display: flex; flex-wrap: wrap; gap: 0.3rem;
+}
+.cu-hist-ftab {
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  border: 1.5px solid #e5e7eb;
+  background: #fff; color: #374151;
+  font-family: 'Lato', sans-serif; font-size: 0.72rem; font-weight: 700;
+  cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.cu-hist-ftab:hover { border-color: #D4AF37; color: #b8962e; }
+.cu-hist-ftab-active {
+  background: #D4AF37; color: #fff;
+  border-color: #D4AF37;
+  box-shadow: 0 2px 6px rgba(212,175,55,0.3);
+}
+
+/* Rango fecha */
+.cu-hist-fecha-row {
+  display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+}
+.cu-hist-fecha-wrap {
+  display: flex; flex-direction: column; gap: 0.2rem;
+}
+.cu-hist-fecha-hint {
+  font-size: 0.62rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.06em; color: #9ca3af;
+}
+.cu-hist-date-input {
+  padding: 0.35rem 0.625rem;
+  border: 1.5px solid #e5e7eb; border-radius: 0.4rem;
+  background: #fff; color: #111827;
+  font-family: 'Lato', sans-serif; font-size: 0.8rem;
+  outline: none; transition: border-color 0.18s;
+  cursor: pointer;
+}
+.cu-hist-date-input:focus { border-color: #D4AF37; box-shadow: 0 0 0 3px rgba(212,175,55,0.1); }
+.cu-hist-fecha-sep { color: #9ca3af; font-size: 0.875rem; align-self: flex-end; padding-bottom: 0.2rem; }
+
+/* Botón limpiar filtros */
+.cu-hist-limpiar-btn {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  margin-top: 0.75rem;
+  padding: 0.3rem 0.75rem;
+  border: 1.5px solid #fbbf24; border-radius: 9999px;
+  background: #fffbeb; color: #92400e;
+  font-family: 'Lato', sans-serif; font-size: 0.7rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  cursor: pointer; transition: all 0.15s;
+}
+.cu-hist-limpiar-btn:hover { background: #fef3c7; border-color: #f59e0b; }
+.cu-hist-limpiar-btn .material-icons-outlined { font-size: 0.875rem !important; }
+
+/* Ordenable en encabezados de tabla */
+.cu-hist-th-sort {
+  display: inline-flex; align-items: center; gap: 0.2rem;
+  background: none; border: none; padding: 0;
+  font-family: inherit; font-size: inherit; font-weight: inherit;
+  color: inherit; letter-spacing: inherit; text-transform: inherit;
+  cursor: pointer; white-space: nowrap;
+}
+.cu-hist-th-sort:hover { color: #D4AF37; }
+.cu-hist-th-sort-right { justify-content: flex-end; width: 100%; }
+.cu-hist-sort-icon { font-size: 0.85rem !important; color: #D4AF37; }
+.cu-hist-sort-inactive { color: #d1d5db !important; }
 
 /* Modal body */
 .cu-hist-body {
@@ -1020,200 +1156,3 @@
   .cu-hist-footer-stats { gap: 1.25rem; }
   .cu-hist-search-wrap { max-width: 100%; }
 }
-
-/* ════════════════════════════════════════════
-   FILTROS AVANZADOS HISTÓRICO
-════════════════════════════════════════════ */
-
-.cu-hist-filters {
-  padding: 0.75rem 1.25rem;
-  background: #f9fafb;
-  border-bottom: 1px solid #e5e7eb;
-  display: flex;
-  flex-direction: column;
-  gap: 0.625rem;
-  flex-shrink: 0;
-}
-
-.cu-hist-filter-group {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
-.cu-hist-filter-label {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-  font-size: 0.68rem;
-  font-weight: 700;
-  color: #6b7280;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  white-space: nowrap;
-  min-width: 70px;
-}
-.cu-hist-filter-label .material-icons-outlined {
-  font-size: 0.9rem !important;
-  color: #D4AF37;
-}
-
-.cu-hist-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.375rem;
-}
-
-.cu-hist-chip {
-  padding: 0.25rem 0.7rem;
-  border-radius: 9999px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  background: #e5e7eb;
-  color: #374151;
-  border: 1px solid transparent;
-  cursor: pointer;
-  transition: all 0.15s;
-  font-family: 'Lato', sans-serif;
-  letter-spacing: 0.02em;
-}
-.cu-hist-chip:hover {
-  background: #d1d5db;
-  color: #111827;
-}
-.cu-hist-chip-active {
-  background: rgba(212, 175, 55, 0.12);
-  color: #92400E;
-  border-color: rgba(212, 175, 55, 0.5);
-}
-
-.cu-hist-dates {
-  display: flex;
-  gap: 0.75rem;
-  align-items: center;
-  flex-wrap: wrap;
-  padding: 0.5rem 0.875rem;
-  background: rgba(212, 175, 55, 0.05);
-  border: 1px solid rgba(212, 175, 55, 0.2);
-  border-radius: 0.5rem;
-}
-
-.cu-hist-date-wrap {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-.cu-hist-date-wrap label {
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: #6b7280;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  white-space: nowrap;
-}
-.cu-hist-date-input {
-  padding: 0.35rem 0.625rem;
-  border: 1px solid #e5e7eb;
-  border-radius: 0.375rem;
-  font-size: 0.8rem;
-  color: #111827;
-  background: white;
-  outline: none;
-  font-family: 'Lato', sans-serif;
-  transition: border-color 0.2s;
-}
-.cu-hist-date-input:focus {
-  border-color: #D4AF37;
-  box-shadow: 0 0 0 2px rgba(212,175,55,0.1);
-}
-
-.cu-hist-select {
-  padding: 0.45rem 0.875rem;
-  border-radius: 0.5rem;
-  border: 1px solid #e5e7eb;
-  background: white;
-  font-size: 0.8rem;
-  color: #374151;
-  font-weight: 700;
-  font-family: 'Lato', sans-serif;
-  outline: none;
-  cursor: pointer;
-  transition: border-color 0.2s;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-.cu-hist-select:focus { border-color: #D4AF37; }
-
-.cu-hist-search-clear {
-  position: absolute;
-  right: 0.5rem;
-  top: 50%;
-  transform: translateY(-50%);
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: #9ca3af;
-  display: flex;
-  align-items: center;
-  padding: 0;
-  transition: color 0.15s;
-}
-.cu-hist-search-clear:hover { color: #374151; }
-.cu-hist-search-clear .material-icons-outlined { font-size: 0.9rem !important; }
-
-.cu-hist-sub-badge {
-  display: inline-block;
-  background: rgba(212,175,55,0.15);
-  color: #92400E;
-  font-weight: 700;
-  padding: 0.05rem 0.4rem;
-  border-radius: 9999px;
-  font-size: 0.68rem;
-}
-
-.cu-hist-btn-reset {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-  padding: 0.35rem 0.75rem;
-  background: rgba(239,68,68,0.08);
-  border: 1px solid rgba(239,68,68,0.2);
-  border-radius: 0.5rem;
-  color: #dc2626;
-  font-size: 0.72rem;
-  font-weight: 700;
-  font-family: 'Lato', sans-serif;
-  cursor: pointer;
-  transition: all 0.15s;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.cu-hist-btn-reset:hover { background: rgba(239,68,68,0.14); }
-.cu-hist-btn-reset .material-icons-outlined { font-size: 0.85rem !important; }
-
-.cu-hist-btn-reset-empty {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.5rem 1rem;
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 0.5rem;
-  color: #374151;
-  font-size: 0.8rem;
-  font-weight: 700;
-  font-family: 'Lato', sans-serif;
-  cursor: pointer;
-  margin-top: 0.5rem;
-  transition: all 0.15s;
-}
-.cu-hist-btn-reset-empty:hover {
-  border-color: #D4AF37;
-  color: #D4AF37;
-}
-.cu-hist-btn-reset-empty .material-icons-outlined { font-size: 1rem !important; }
-
-/* Modal más ancho para acomodar filtros */
-.cu-hist-modal { max-width: 980px !important; }
