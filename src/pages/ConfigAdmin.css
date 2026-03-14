@@ -333,3 +333,435 @@
   .ca-action-card  { flex-direction: column; text-align: center; }
   .ca-header-title { font-size: 1.5rem; }
 }
+
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&display=swap');
+
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Lato:wght@300;400;700&family=Playball&display=swap');
+
+/* ══════════════════════════════════════════════════════
+   CARTA DE CIERRE — Reemplaza sección "SOBRE DE CIERRE"
+   en ConfigAdmin.css
+══════════════════════════════════════════════════════ */
+
+/* ── Overlay transparente — se ve la app detrás ── */
+.rc-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  overflow-y: auto;
+  animation: rc-overlay-in 0.3s ease;
+}
+@keyframes rc-overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── Partículas decorativas ── */
+.rc-particles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.rc-particle {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(212,175,55,0.18), transparent 70%);
+  animation: rc-float linear infinite;
+}
+.rc-particle-1 { width: 300px; height: 300px; top: -80px; left: -60px;  animation-duration: 18s; animation-delay: 0s; }
+.rc-particle-2 { width: 200px; height: 200px; top: 30%;   right: -40px; animation-duration: 22s; animation-delay: -6s; }
+.rc-particle-3 { width: 150px; height: 150px; bottom: 10%; left: 15%;  animation-duration: 16s; animation-delay: -3s; }
+.rc-particle-4 { width: 80px;  height: 80px;  top: 20%;   left: 25%;   animation-duration: 12s; animation-delay: -8s; }
+.rc-particle-5 { width: 120px; height: 120px; bottom: 20%; right: 20%; animation-duration: 20s; animation-delay: -2s; }
+.rc-particle-6 { width: 60px;  height: 60px;  top: 60%;   left: 60%;   animation-duration: 14s; animation-delay: -10s; }
+
+@keyframes rc-float {
+  0%   { transform: translateY(0px) scale(1);    opacity: 0.6; }
+  50%  { transform: translateY(-20px) scale(1.1); opacity: 1; }
+  100% { transform: translateY(0px) scale(1);    opacity: 0.6; }
+}
+
+/* ── Contenedor total ── */
+.rc-carta-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 460px;
+  display: flex;
+  flex-direction: column;
+  animation: rc-carta-in 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  filter: drop-shadow(0 32px 48px rgba(0,0,0,0.4));
+}
+@keyframes rc-carta-in {
+  from { opacity: 0; transform: translateY(32px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+
+/* ── Solapa superior (efecto sobre abierto) ── */
+.rc-solapa {
+  position: relative;
+  background: linear-gradient(160deg, #D4AF37 0%, #b8962e 100%);
+  border-radius: 12px 12px 0 0;
+  padding: 1rem 1.5rem 1.75rem;
+  overflow: hidden;
+}
+.rc-solapa::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 8px,
+    rgba(255,255,255,0.04) 8px,
+    rgba(255,255,255,0.04) 16px
+  );
+}
+.rc-solapa-inner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+}
+.rc-solapa-logo {
+  width: 42px; height: 42px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.18);
+  border: 1.5px solid rgba(255,255,255,0.35);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.rc-solapa-logo .material-icons-outlined {
+  font-size: 1.3rem !important;
+  color: white;
+}
+.rc-solapa-nombre {
+  font-family: 'Cinzel', serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.9);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 0;
+}
+.rc-solapa-script {
+  font-family: 'Playball', cursive;
+  font-size: 1.3rem;
+  color: white;
+  margin: 0;
+  line-height: 1.1;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+/* Triángulo que simula el pliegue de la solapa */
+.rc-solapa-triangle {
+  position: absolute;
+  bottom: -1px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0; height: 0;
+  border-left: 40px solid transparent;
+  border-right: 40px solid transparent;
+  border-top: 20px solid #b8962e;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.15));
+}
+
+/* ── Carta principal ── */
+.rc-carta {
+  background: #ffffff;
+  border: 1px solid rgba(212,175,55,0.3);
+  border-top: none;
+  border-radius: 0 0 12px 12px;
+  padding: 2rem 2rem 1.5rem;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Sutil textura de papel en fondo */
+.rc-carta::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(ellipse at 20% 80%, rgba(212,175,55,0.04) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, rgba(212,175,55,0.04) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+/* ── Esquinas decorativas (estilo carta elegante) ── */
+.rc-corner {
+  position: absolute;
+  width: 18px; height: 18px;
+  pointer-events: none;
+}
+.rc-corner::before,
+.rc-corner::after {
+  content: '';
+  position: absolute;
+  background: #D4AF37;
+  border-radius: 1px;
+}
+.rc-corner::before { width: 100%; height: 1.5px; top: 0; left: 0; }
+.rc-corner::after  { width: 1.5px; height: 100%; top: 0; left: 0; }
+
+.rc-corner-tl { top: 10px;  left: 10px; }
+.rc-corner-tr { top: 10px;  right: 10px;  transform: scaleX(-1); }
+.rc-corner-bl { bottom: 56px; left: 10px;  transform: scaleY(-1); }
+.rc-corner-br { bottom: 56px; right: 10px; transform: scale(-1); }
+
+/* ── Fecha ── */
+.rc-fecha {
+  text-align: right;
+  font-size: 0.75rem;
+  color: #9ca3af;
+  font-style: italic;
+  margin: 0 0 1.25rem;
+  letter-spacing: 0.02em;
+  text-transform: capitalize;
+  position: relative;
+}
+
+/* ── Título centrado con líneas ── */
+.rc-titulo-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  margin-bottom: 1.5rem;
+}
+.rc-titulo-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(212,175,55,0.5));
+}
+.rc-titulo-wrap .rc-titulo-line:last-child {
+  background: linear-gradient(to left, transparent, rgba(212,175,55,0.5));
+}
+.rc-titulo {
+  font-family: 'Cinzel', serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #D4AF37;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  margin: 0;
+  white-space: nowrap;
+}
+
+/* ── Cuerpo: dos columnas ── */
+.rc-cuerpo {
+  display: flex;
+  gap: 0;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+}
+
+/* Columna izquierda */
+.rc-col-izq {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding-right: 1.25rem;
+}
+
+.rc-fila {
+  display: flex;
+  align-items: baseline;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #f9fafb;
+  opacity: 0;
+  animation: rc-row-in 0.35s ease forwards;
+}
+.rc-fila:last-child { border-bottom: none; }
+
+@keyframes rc-row-in {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* Fila destacada — "Entrego en sobre" */
+.rc-fila-star {
+  background: linear-gradient(90deg, rgba(212,175,55,0.06), transparent);
+  border-radius: 6px;
+  margin: 0.1rem 0;
+  padding: 0.625rem 0.5rem;
+  border-bottom: none !important;
+  border: 1px solid rgba(212,175,55,0.2);
+}
+
+.rc-fila-gasto .rc-concepto { color: #6b7280; }
+
+.rc-concepto {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #374151;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* Línea de puntos conectora */
+.rc-puntos {
+  flex: 1;
+  height: 1px;
+  border-bottom: 1.5px dotted #e5e7eb;
+  margin: 0 0.5rem 0.2rem;
+  min-width: 12px;
+}
+
+.rc-valor {
+  font-family: 'Cinzel', serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #111827;
+  white-space: nowrap;
+}
+
+.rc-valor-star {
+  color: #D4AF37;
+  font-size: 0.95rem;
+}
+
+.rc-valor-gasto { color: #ef4444; }
+
+/* Divisor vertical */
+.rc-divisor-v {
+  width: 1px;
+  align-self: stretch;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(212,175,55,0.35) 15%,
+    rgba(212,175,55,0.35) 85%,
+    transparent
+  );
+  flex-shrink: 0;
+  margin: 0 0.125rem;
+}
+
+/* Columna derecha */
+.rc-col-der {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding-left: 1.25rem;
+  min-width: 140px;
+}
+
+.rc-turnos-label {
+  font-size: 0.6rem;
+  font-weight: 900;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  margin: 0 0 0.25rem;
+}
+
+.rc-turno {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  opacity: 0;
+  animation: rc-row-in 0.35s ease forwards;
+}
+
+.rc-turno-av {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #D4AF37, #b8962e);
+  color: white;
+  font-size: 0.65rem;
+  font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(212,175,55,0.35);
+  font-family: 'Lato', sans-serif;
+}
+
+.rc-turno-nombre {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 0.15rem;
+}
+.rc-turno-horas {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.72rem;
+  color: #6b7280;
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+
+/* ── Fila de firma / sello ── */
+.rc-firma-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.5rem 0 1.25rem;
+}
+.rc-firma-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(212,175,55,0.4));
+}
+.rc-firma-row .rc-firma-line:last-child {
+  background: linear-gradient(to left, transparent, rgba(212,175,55,0.4));
+}
+.rc-firma-sello {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: rgba(212,175,55,0.1);
+  border: 1.5px solid rgba(212,175,55,0.4);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.rc-firma-sello .material-icons-outlined {
+  font-size: 1rem !important;
+  color: #D4AF37;
+}
+
+/* ── Botón ── */
+.rc-btn {
+  width: 100%;
+  padding: 0.8rem;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #D4AF37 0%, #b8962e 100%);
+  color: white;
+  font-family: 'Lato', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 900;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  box-shadow:
+    0 4px 16px rgba(212,175,55,0.4),
+    inset 0 1px 0 rgba(255,255,255,0.2);
+  transition: all 0.2s;
+}
+.rc-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(212,175,55,0.5);
+}
+.rc-btn:active { transform: scale(0.98); }
+.rc-btn .material-icons-outlined { font-size: 1rem !important; }
+
+/* ── Sombra de profundidad debajo de la carta ── */
+.rc-carta-sombra {
+  height: 8px;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.12), transparent);
+  border-radius: 0 0 12px 12px;
+  margin: 0 8px;
+}

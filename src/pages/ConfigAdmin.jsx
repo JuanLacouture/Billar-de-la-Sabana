@@ -13,6 +13,14 @@ const formatHora = (iso) => {
   })
 }
 
+const formatFechaCompleta = (iso) => {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleDateString('es-CO', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    timeZone: 'America/Bogota',
+  })
+}
+
 const iniciales = (nombre) => {
   if (!nombre) return '?'
   return nombre.split(' ').map(p => p[0]).join('').substring(0, 2).toUpperCase()
@@ -21,6 +29,170 @@ const iniciales = (nombre) => {
 const redondear50 = (v) => Math.round(v / 50) * 50
 
 
+
+// ══════════════════════════════════════════════════════
+//  RESUMEN DE CIERRE — Carta elegante
+//  Reemplaza el componente ResumenCierre en ConfigAdmin.jsx
+// ══════════════════════════════════════════════════════
+
+function ResumenCierre({ resumen, onCerrar }) {
+  const { cajaInicial, ventas, gastos, turnos, fechaCierre } = resumen
+
+  const efectivo  = ventas.find(v => v.metodo === 'efectivo')?.total  ?? 0
+  const nequi     = ventas.find(v => v.metodo === 'nequi')?.total     ?? 0
+  const daviplata = ventas.find(v => v.metodo === 'daviplata')?.total ?? 0
+  const bold      = ventas.find(v => v.metodo === 'bold')?.total      ?? 0
+  const totalGastos  = gastos.reduce((s, g) => s + (g.precio ?? 0), 0)
+  const gastosCaja   = gastos.filter(g => g.metodo_pago === 'Caja').reduce((s, g) => s + (g.precio ?? 0), 0)
+  const entregaSobre = cajaInicial + efectivo - gastosCaja
+
+  const fechaTexto = new Date(fechaCierre).toLocaleDateString('es-CO', {
+    weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric',
+    timeZone: 'America/Bogota',
+  })
+
+  const fmtHora = (iso) => new Date(iso).toLocaleTimeString('es-CO', {
+    hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Bogota',
+  })
+
+  const fmtVal = (val) =>
+    val === 0
+      ? '—'
+      : new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(val)
+
+  const filas = [
+    { label: 'Base',             val: cajaInicial,  destacado: false },
+    { label: 'Entrego en sobre', val: entregaSobre, destacado: true  },
+    { label: 'Nequi',            val: nequi,        destacado: false },
+    { label: 'Daviplata',        val: daviplata,    destacado: false },
+    { label: 'Bold',             val: bold,         destacado: false },
+    { label: 'Gastos',           val: totalGastos,  destacado: false, esGasto: true },
+  ]
+
+  return (
+    <div className="rc-overlay">
+
+      {/* Partículas decorativas de fondo */}
+      <div className="rc-particles">
+        {[...Array(6)].map((_, i) => (
+          <div key={i} className={`rc-particle rc-particle-${i + 1}`} />
+        ))}
+      </div>
+
+      <div className="rc-carta-wrap">
+
+        {/* ── Solapa superior de la carta ── */}
+        <div className="rc-solapa">
+          <div className="rc-solapa-inner">
+            <div className="rc-solapa-logo">
+              <span className="material-icons-outlined">sports_esports</span>
+            </div>
+            <div>
+              <p className="rc-solapa-nombre">Club de Billar</p>
+              <p className="rc-solapa-script">Sabana</p>
+            </div>
+          </div>
+          {/* Triángulo de solapa */}
+          <div className="rc-solapa-triangle" />
+        </div>
+
+        {/* ── Carta principal ── */}
+        <div className="rc-carta">
+
+          {/* Esquinas decorativas */}
+          <div className="rc-corner rc-corner-tl" />
+          <div className="rc-corner rc-corner-tr" />
+          <div className="rc-corner rc-corner-bl" />
+          <div className="rc-corner rc-corner-br" />
+
+          {/* Fecha arriba derecha */}
+          <p className="rc-fecha">{fechaTexto}</p>
+
+          {/* Título */}
+          <div className="rc-titulo-wrap">
+            <div className="rc-titulo-line" />
+            <h2 className="rc-titulo">Cierre de Caja</h2>
+            <div className="rc-titulo-line" />
+          </div>
+
+          {/* Cuerpo: izquierda + derecha */}
+          <div className="rc-cuerpo">
+
+            {/* ── Columna izquierda: cifras ── */}
+            <div className="rc-col-izq">
+              {filas.map((f, i) => (
+                <div
+                  key={i}
+                  className={`rc-fila ${f.destacado ? 'rc-fila-star' : ''} ${f.esGasto ? 'rc-fila-gasto' : ''}`}
+                  style={{ animationDelay: `${0.1 + i * 0.07}s` }}
+                >
+                  <span className="rc-concepto">{f.label}</span>
+                  <span className="rc-puntos" />
+                  <span className={`rc-valor ${f.destacado ? 'rc-valor-star' : ''} ${f.esGasto && f.val > 0 ? 'rc-valor-gasto' : ''}`}>
+                    {fmtVal(f.val)}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Divisor vertical */}
+            <div className="rc-divisor-v" />
+
+            {/* ── Columna derecha: turnos ── */}
+            <div className="rc-col-der">
+              <p className="rc-turnos-label">Turnos</p>
+              {turnos.map((t, i) => (
+                <div
+                  key={t.id}
+                  className="rc-turno"
+                  style={{ animationDelay: `${0.35 + i * 0.1}s` }}
+                >
+                  <div className="rc-turno-av">
+                    {(t.nombre || '?').split(' ').map(p => p[0]).join('').substring(0, 2).toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="rc-turno-nombre">{t.nombre}</p>
+                    <p className="rc-turno-horas">
+                      {fmtHora(t.hora_inicio)}&nbsp;→&nbsp;{fmtHora(t.hora_fin)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+          </div>
+
+          {/* Línea decorativa de firma */}
+          <div className="rc-firma-row">
+            <div className="rc-firma-line" />
+            <span className="rc-firma-sello">
+              <span className="material-icons-outlined">verified</span>
+            </span>
+            <div className="rc-firma-line" />
+          </div>
+
+          {/* Botón */}
+          <button
+            className="rc-btn"
+            onClick={async () => { onCerrar(); await supabase.auth.signOut() }}
+          >
+            <span className="material-icons-outlined">check_circle</span>
+            Entendido · Cerrar sesión
+          </button>
+
+        </div>
+
+        {/* ── Sombra inferior de carta doblada ── */}
+        <div className="rc-carta-sombra" />
+
+      </div>
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════
+//  CONFIG ADMIN PRINCIPAL
+// ══════════════════════════════════════════════════════
 function ConfigAdmin({ onNavegar }) {
   const [turnos, setTurnos]             = useState([])
   const [gastos, setGastos]             = useState([])
@@ -32,6 +204,7 @@ function ConfigAdmin({ onNavegar }) {
   const [cerrandoTodo, setCerrandoTodo] = useState(false)
   const [userActual, setUserActual]     = useState(null)
   const [confirm, setConfirm]           = useState(null)
+  const [resumen, setResumen]           = useState(null)   // datos del cierre
 
 
   // ── Reloj ──
@@ -54,7 +227,7 @@ function ConfigAdmin({ onNavegar }) {
     const { data: { user } } = await supabase.auth.getUser()
     setUserActual(user)
 
-    // 1. Caja abierta → fuente de verdad para caja_inicial y fecha de inicio
+    // 1. Caja abierta
     const { data: cajaActual } = await supabase
       .from('caja')
       .select('*')
@@ -62,17 +235,17 @@ function ConfigAdmin({ onNavegar }) {
       .limit(1)
       .maybeSingle()
 
-    const desde      = cajaActual?.fecha_apertura ?? new Date(new Date().setHours(0,0,0,0)).toISOString()
+    const desde       = cajaActual?.fecha_apertura ?? new Date(new Date().setHours(0,0,0,0)).toISOString()
     const cajaInicial = cajaActual?.caja_inicial ?? 0
 
-    // 2. Todos los turnos abiertos (sin join cross-schema)
+    // 2. Turnos abiertos
     const { data: turnosData } = await supabase
       .from('turnos')
       .select('*')
       .is('hora_fin', null)
       .order('hora_inicio', { ascending: true })
 
-    // 3. Perfiles por separado
+    // 3. Perfiles
     const adminIds = [...new Set((turnosData ?? []).map(t => t.admin_id))]
     let profilesMap = {}
     if (adminIds.length > 0) {
@@ -86,21 +259,20 @@ function ConfigAdmin({ onNavegar }) {
       ...t, profiles: profilesMap[t.admin_id] ?? null,
     }))
 
-    // 4. Gastos desde apertura de caja
+    // 4. Gastos
     const { data: gastosData } = await supabase
       .from('gastos')
       .select('*')
       .gte('created_at', desde)
       .order('created_at', { ascending: false })
 
-    // 5. Ventas desde apertura de caja
+    // 5. Ventas
     const { data: cuentasData } = await supabase
       .from('cuentas')
       .select('subtotal_productos, subtotal_tiempo, metodo_pago')
       .eq('estado', 'liquidada')
       .gte('hora_cierre', desde)
 
-    // ── Stats ──
     const totalVentas = (cuentasData ?? []).reduce((s, c) =>
       s + redondear50((c.subtotal_tiempo ?? 0) + (c.subtotal_productos ?? 0)), 0)
 
@@ -127,7 +299,7 @@ function ConfigAdmin({ onNavegar }) {
   useEffect(() => { cargar() }, [])
 
 
-  // ── Cerrar turno propio → signOut ──
+  // ── Cerrar turno propio ──
   const cerrarTurnoPropio = async () => {
     setCerrando(true)
     const turno = turnos.find(t => t.admin_id === userActual?.id)
@@ -137,31 +309,94 @@ function ConfigAdmin({ onNavegar }) {
     await supabase.auth.signOut()
   }
 
-  // ── Cerrar Todo → cierra caja + todos los turnos ──
+
+  // ── Cerrar Todo → recopilar resumen → cerrar caja y turnos ──
   const cerrarTodos = async () => {
     setCerrandoTodo(true)
     const ahora = new Date().toISOString()
 
-    // Cerrar la caja abierta
+    // --- Recopilar datos para el resumen ANTES de cerrar ---
+
+    // Caja actual
+    const { data: cajaActual } = await supabase
+      .from('caja').select('*').eq('is_open', true).limit(1).maybeSingle()
+
+    const desde       = cajaActual?.fecha_apertura ?? new Date(new Date().setHours(0,0,0,0)).toISOString()
+    const cajaInicial = cajaActual?.caja_inicial ?? 0
+
+    // Ventas agrupadas por método
+    const { data: cuentasData } = await supabase
+      .from('cuentas')
+      .select('subtotal_productos, subtotal_tiempo, metodo_pago')
+      .eq('estado', 'liquidada')
+      .gte('hora_cierre', desde)
+
+    const metodos = ['efectivo', 'nequi', 'daviplata', 'bold']
+    const ventas = metodos.map(m => ({
+      metodo: m,
+      total: (cuentasData ?? [])
+        .filter(c => c.metodo_pago === m)
+        .reduce((s, c) => s + redondear50((c.subtotal_tiempo ?? 0) + (c.subtotal_productos ?? 0)), 0),
+    }))
+
+    // Todos los turnos de esta caja con perfiles
+    const { data: todosLosTurnos } = await supabase
+      .from('turnos')
+      .select('*')
+      .eq('caja_id', cajaActual?.id)
+      .order('hora_inicio', { ascending: true })
+
+    const adminIdsTurnos = [...new Set((todosLosTurnos ?? []).map(t => t.admin_id))]
+    let pMap = {}
+    if (adminIdsTurnos.length > 0) {
+      const { data: pData } = await supabase
+        .from('profiles').select('id, full_name, email').in('id', adminIdsTurnos)
+      ;(pData ?? []).forEach(p => { pMap[p.id] = p })
+    }
+    const turnosResumen = (todosLosTurnos ?? []).map(t => ({
+      id:          t.id,
+      nombre:      pMap[t.admin_id]?.full_name || pMap[t.admin_id]?.email || 'Empleado',
+      hora_inicio: t.hora_inicio,
+      hora_fin:    t.hora_fin ?? ahora,
+    }))
+
+    // Gastos
+    const { data: gastosData } = await supabase
+      .from('gastos').select('*').gte('created_at', desde)
+
+    // --- Cerrar caja y turnos ---
     await supabase.from('caja')
       .update({ is_open: false, fecha_cierre: ahora })
       .eq('is_open', true)
 
-    // Cerrar todos los turnos abiertos
     await supabase.from('turnos')
       .update({ hora_fin: ahora })
       .is('hora_fin', null)
 
     setCerrandoTodo(false)
     setConfirm(null)
-    cargar()
+
+    // Mostrar resumen
+    setResumen({
+      cajaInicial,
+      ventas,
+      gastos:        gastosData ?? [],
+      turnos:        turnosResumen,
+      fechaApertura: desde,
+      fechaCierre:   ahora,
+    })
+  }
+
+
+  // ── Si hay resumen activo, mostrar pantalla de cierre ──
+  if (resumen) {
+    return <ResumenCierre resumen={resumen} onCerrar={() => { setResumen(null); cargar() }} />
   }
 
 
   return (
     <div className="ca-root">
 
-      {/* ── Modal confirmación ── */}
       {confirm && (
         <div className="ca-overlay" onClick={() => setConfirm(null)}>
           <div className="ca-confirm" onClick={e => e.stopPropagation()}>
@@ -192,7 +427,6 @@ function ConfigAdmin({ onNavegar }) {
 
       <div className="ca-container">
 
-        {/* ── Nav ── */}
         <nav className="ca-nav">
           <div className="ca-nav-left">
             <button className="ca-back-btn" onClick={() => onNavegar('dashboard')}>
@@ -220,13 +454,11 @@ function ConfigAdmin({ onNavegar }) {
           </div>
         </nav>
 
-        {/* ── Header ── */}
         <header className="ca-header">
           <h1 className="ca-header-title">Configuración Administrativa</h1>
           <p className="ca-header-sub">Control de turnos, caja y supervisión de operaciones en tiempo real</p>
         </header>
 
-        {/* ── Stats ── */}
         <div className="ca-stats-grid">
           <div className="ca-stat-card">
             <div className="ca-stat-top">
@@ -257,12 +489,11 @@ function ConfigAdmin({ onNavegar }) {
           </div>
         </div>
 
-        {/* ── Acciones ── */}
         <section className="ca-actions-row">
           <div className="ca-action-card ca-action-gold">
             <div className="ca-action-info">
               <h2 className="ca-action-title">Cerrar Turno Actual</h2>
-              <p className="ca-action-desc">Finaliza tu periodo de trabajo y genera el resumen de ventas y arqueo.</p>
+              <p className="ca-action-desc">Finaliza tu periodo de trabajo. Tu sesión se cerrará automáticamente.</p>
             </div>
             <button className="ca-btn-gold" onClick={() => setConfirm('turno')}>
               <span className="material-icons-outlined">hourglass_disabled</span>Cerrar Turno
@@ -271,7 +502,7 @@ function ConfigAdmin({ onNavegar }) {
           <div className="ca-action-card ca-action-grey">
             <div className="ca-action-info">
               <h2 className="ca-action-title ca-action-title-dark">Cerrar Caja General</h2>
-              <p className="ca-action-desc">Cierre total de operaciones y arqueo definitivo de todos los turnos de hoy.</p>
+              <p className="ca-action-desc">Cierre total. Genera el resumen del día con todos los ingresos y gastos.</p>
             </div>
             <button className="ca-btn-red" onClick={() => setConfirm('todo')}>
               <span className="material-icons-outlined">lock_reset</span>Cerrar Todo
@@ -279,9 +510,7 @@ function ConfigAdmin({ onNavegar }) {
           </div>
         </section>
 
-        {/* ── Tablas ── */}
         <div className="ca-tables-grid">
-
           <div className="ca-table-card ca-table-main">
             <div className="ca-table-header">
               <div className="ca-table-header-left">
@@ -310,8 +539,8 @@ function ConfigAdmin({ onNavegar }) {
                   ) : turnos.length === 0 ? (
                     <tr><td colSpan={4} className="ca-empty">No hay turnos activos</td></tr>
                   ) : turnos.map(t => {
-                    const nombre      = t.profiles?.full_name || t.profiles?.email || 'Empleado'
-                    const esMio       = t.admin_id === userActual?.id
+                    const nombre = t.profiles?.full_name || t.profiles?.email || 'Empleado'
+                    const esMio  = t.admin_id === userActual?.id
                     return (
                       <tr key={t.id} className={esMio ? 'ca-row-mine' : ''}>
                         <td>
@@ -323,9 +552,7 @@ function ConfigAdmin({ onNavegar }) {
                           </div>
                         </td>
                         <td className="ca-td-hora">{formatHora(t.hora_inicio)}</td>
-                        <td className="ca-td-monto">
-                          <span className="ca-td-na">—</span>
-                        </td>
+                        <td className="ca-td-monto"><span className="ca-td-na">—</span></td>
                         <td className="ca-th-c">
                           <span className="ca-tag ca-tag-blue">Activo</span>
                         </td>
@@ -372,7 +599,6 @@ function ConfigAdmin({ onNavegar }) {
               <span className="ca-gastos-footer-valor">{formatCOP(stats.gastosMuest)}</span>
             </div>
           </div>
-
         </div>
 
         <p className="ca-footer">© 2026 Club de Billar Sabana. Sistema de Gestión Premium</p>

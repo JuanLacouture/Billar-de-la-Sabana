@@ -2,8 +2,6 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
 import ConsumoMesa from './ConsumoMesa'
 import './DashboardAdmin.css'
-import Sidebar from './Sidebar'
-
 
 
 const colorTipo = {
@@ -357,6 +355,61 @@ function DashboardAdmin({ onNavegar }) {
 
   const userInfo = useSidebarUser()
 
+
+  const formatCOP = (val) =>
+    new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(val ?? 0)
+
+
+  // ── Stats reales de caja ──
+  const [statsReal, setStatsReal] = useState({ ventas: 0, caja: 0, cargando: true })
+
+  const redondear50 = (v) => Math.round(v / 50) * 50
+
+  const cargarStats = async () => {
+    // 1. Caja abierta hoy
+    const { data: cajaActual } = await supabase
+      .from('caja')
+      .select('caja_inicial, fecha_apertura')
+      .eq('is_open', true)
+      .limit(1)
+      .maybeSingle()
+
+    const desde      = cajaActual?.fecha_apertura ?? new Date(new Date().setHours(0,0,0,0)).toISOString()
+    const cajaInicial = cajaActual?.caja_inicial ?? 0
+
+    // 2. Cuentas liquidadas desde apertura
+    const { data: cuentasData } = await supabase
+      .from('cuentas')
+      .select('subtotal_productos, subtotal_tiempo, metodo_pago')
+      .eq('estado', 'liquidada')
+      .gte('hora_cierre', desde)
+
+    // 3. Gastos desde apertura
+    const { data: gastosData } = await supabase
+      .from('gastos')
+      .select('precio, metodo_pago')
+      .gte('created_at', desde)
+
+    const totalVentas = (cuentasData ?? []).reduce((s, c) =>
+      s + redondear50((c.subtotal_tiempo ?? 0) + (c.subtotal_productos ?? 0)), 0)
+
+    const ventasEfectivo = (cuentasData ?? [])
+      .filter(c => c.metodo_pago === 'efectivo')
+      .reduce((s, c) => s + redondear50((c.subtotal_tiempo ?? 0) + (c.subtotal_productos ?? 0)), 0)
+
+    const gastosCaja = (gastosData ?? [])
+      .filter(g => g.metodo_pago === 'Caja')
+      .reduce((s, g) => s + (g.precio ?? 0), 0)
+
+    setStatsReal({
+      ventas:   totalVentas,
+      caja:     cajaInicial + ventasEfectivo - gastosCaja,
+      cargando: false,
+    })
+  }
+
+  useEffect(() => { cargarStats() }, [])
+
   const cargarMesas = async () => {
     setCargando(true)
     const { data, error } = await supabase
@@ -478,8 +531,47 @@ function DashboardAdmin({ onNavegar }) {
       )}
 
       {/* ── SIDEBAR ── */}
-      <Sidebar paginaActual="dashboard" onNavegar={onNavegar} />
+      <aside className="da-sidebar">
+        <div className="da-sidebar-logo">
+          <span className="material-icons-outlined da-sidebar-icon">sports_esports</span>
+          <div>
+            <h1 className="da-sidebar-title">Club de Billar</h1>
+            <span className="da-sidebar-script">Sabana</span>
+          </div>
+        </div>
 
+        <nav className="da-nav">
+          <a href="#" className="da-nav-item da-nav-active">
+            <span className="material-icons-outlined">dashboard</span>Dashboard
+          </a>
+          <a href="#" className="da-nav-item" onClick={e => { e.preventDefault(); onNavegar('inventario') }}>
+            <span className="material-icons-outlined">inventory_2</span>Inventario
+          </a>
+          <a href="#" className="da-nav-item" onClick={e => { e.preventDefault(); onNavegar('cuentas') }}>
+            <span className="material-icons-outlined">receipt_long</span>Cuentas
+          </a>
+          <a href="#" className="da-nav-item">
+            <span className="material-icons-outlined">bar_chart</span>Reportes
+          </a>
+          <a href="#" className="da-nav-item" onClick={e => { e.preventDefault(); onNavegar('clientes') }}>
+            <span className="material-icons-outlined">people</span>Clientes
+          </a>
+
+        </nav>
+
+        <div className="da-sidebar-footer">
+          <button className="da-user-btn" onClick={() => onNavegar('configadmin')}>
+            <div className="da-user-avatar">
+              {userInfo.email ? userInfo.email[0].toUpperCase() : '?'}
+            </div>
+            <div className="da-user-info">
+              <p className="da-user-name">{userInfo.email || 'Cargando...'}</p>
+              <p className="da-user-role">{userInfo.role}</p>
+            </div>
+            <span className="material-icons-outlined">settings</span>
+          </button>
+        </div>
+      </aside>
 
       {/* ── MAIN ── */}
       <main className="da-main">
@@ -532,7 +624,7 @@ function DashboardAdmin({ onNavegar }) {
               <div className="da-stat-top">
                 <div>
                   <p className="da-stat-label">Ventas Hoy</p>
-                  <h3 className="da-stat-value">$1.2M</h3>
+                  <h3 className="da-stat-value">{statsReal.cargando ? '—' : formatCOP(statsReal.ventas)}</h3>
                 </div>
                 <div className="da-stat-icon" style={{ background: '#ECFDF5', color: '#10B981' }}>
                   <span className="material-icons-outlined">payments</span>
@@ -559,13 +651,12 @@ function DashboardAdmin({ onNavegar }) {
               <div className="da-stat-top">
                 <div>
                   <p className="da-stat-label">Caja Actual</p>
-                  <h3 className="da-stat-value">$450k</h3>
+                  <h3 className="da-stat-value">{statsReal.cargando ? '—' : formatCOP(statsReal.caja)}</h3>
                 </div>
                 <div className="da-stat-icon" style={{ background: '#F5F3FF', color: '#8B5CF6' }}>
                   <span className="material-icons-outlined">point_of_sale</span>
                 </div>
               </div>
-              <p className="da-stat-hint">Cierre programado: 02:00 AM</p>
             </div>
           </div>
 
