@@ -7,6 +7,7 @@ import Cuentas from './pages/Cuentas'
 import Clientes from './pages/Clientes'
 import Inventario from './pages/Inventario'
 import ConfigAdmin from './pages/ConfigAdmin'
+import Reportes from './pages/Reportes'
 
 
 function App() {
@@ -17,7 +18,6 @@ function App() {
   )
   const [cargandoSesion, setCargandoSesion] = useState(true)
   const [pagina, setPagina] = useState('dashboard')
-
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -39,7 +39,6 @@ function App() {
       }
       setCargandoSesion(false)
     })
-
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session) {
@@ -67,33 +66,29 @@ function App() {
       }
     })
 
-
     return () => subscription.unsubscribe()
   }, [])
-
 
   const handleTurnoIniciado = () => {
     sessionStorage.setItem('turno_iniciado', 'true')
     setTurnoIniciado(true)
   }
 
-
   if (cargandoSesion) return null
-  if (!session)      return <Login />
+  if (!session)       return <Login />
   if (rol === 'admin' && !turnoIniciado)
     return <VerificacionTurno onTurnoIniciado={handleTurnoIniciado} />
 
   if (rol === 'admin' && turnoIniciado) {
-    if (pagina === 'cuentas')      return <Cuentas      onNavegar={setPagina} />
-    if (pagina === 'clientes')     return <Clientes     onNavegar={setPagina} />
-    if (pagina === 'Inventario')   return <Inventario   onNavegar={setPagina} />
-    if (pagina === 'configadmin')  return <ConfigAdmin  onNavegar={setPagina} />
+    if (pagina === 'cuentas')     return <Cuentas     onNavegar={setPagina} />
+    if (pagina === 'clientes')    return <Clientes    onNavegar={setPagina} />
+    if (pagina === 'Inventario')  return <Inventario  onNavegar={setPagina} />
+    if (pagina === 'reportes')    return <Reportes    onNavegar={setPagina} />
+    if (pagina === 'configadmin') return <ConfigAdmin onNavegar={setPagina} />
     return <DashboardAdmin onNavegar={setPagina} />
   }
 
-
   return null
 }
-
 
 export default App
