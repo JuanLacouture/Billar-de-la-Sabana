@@ -2,23 +2,59 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
 import './ConfigAdmin.css'
 
+const TZ = 'America/Bogota'
+
+function toDate(iso) {
+  if (!iso) return null
+  const s = String(iso)
+  if (s.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(s)) return new Date(s)
+  return new Date(s + 'Z')
+}
 
 const formatCOP = (val) =>
-  new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(val ?? 0)
+  new Intl.NumberFormat('es-CO', {
+    style: 'currency', currency: 'COP', maximumFractionDigits: 0,
+  }).format(val ?? 0)
 
 const formatHora = (iso) => {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleTimeString('es-CO', {
-    hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'America/Bogota',
+  const d = toDate(iso)
+  if (!d) return '—'
+  return d.toLocaleTimeString('es-CO', {
+    hour: '2-digit', minute: '2-digit', hour12: true, timeZone: TZ,
+  })
+}
+
+const formatHora24 = (iso) => {
+  const d = toDate(iso)
+  if (!d) return '—'
+  return d.toLocaleTimeString('es-CO', {
+    hour: '2-digit', minute: '2-digit', hour12: false, timeZone: TZ,
   })
 }
 
 const formatFechaCompleta = (iso) => {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('es-CO', {
+  const d = toDate(iso)
+  if (!d) return '—'
+  return d.toLocaleDateString('es-CO', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-    timeZone: 'America/Bogota',
+    timeZone: TZ,
   })
+}
+
+// ── DEBUG: muestra exactamente qué llega y qué devuelve ──
+// profiles solo tiene id, full_name, role, created_at (sin email)
+const nombrePerfil = (perfil) => {
+  console.log('%c[nombrePerfil] perfil recibido:', 'color: #D4AF37; font-weight: bold', perfil)
+  if (!perfil) {
+    console.warn('[nombrePerfil] ⚠ perfil es null/undefined')
+    return 'Sin nombre'
+  }
+  if (perfil.full_name?.trim()) {
+    console.log('[nombrePerfil] ✓ usando full_name:', perfil.full_name.trim())
+    return perfil.full_name.trim()
+  }
+  console.warn('[nombrePerfil] ⚠ full_name vacío, devuelve Sin nombre')
+  return 'Sin nombre'
 }
 
 const iniciales = (nombre) => {
@@ -29,12 +65,9 @@ const iniciales = (nombre) => {
 const redondear50 = (v) => Math.round(v / 50) * 50
 
 
-
 // ══════════════════════════════════════════════════════
 //  RESUMEN DE CIERRE — Carta elegante
-//  Reemplaza el componente ResumenCierre en ConfigAdmin.jsx
 // ══════════════════════════════════════════════════════
-
 function ResumenCierre({ resumen, onCerrar }) {
   const { cajaInicial, ventas, gastos, turnos, fechaCierre } = resumen
 
@@ -46,33 +79,34 @@ function ResumenCierre({ resumen, onCerrar }) {
   const gastosCaja   = gastos.filter(g => g.metodo_pago === 'Caja').reduce((s, g) => s + (g.precio ?? 0), 0)
   const entregaSobre = cajaInicial + efectivo - gastosCaja
 
-  const fechaTexto = new Date(fechaCierre).toLocaleDateString('es-CO', {
+  const fechaTexto = toDate(fechaCierre)?.toLocaleDateString('es-CO', {
     weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric',
-    timeZone: 'America/Bogota',
-  })
+    timeZone: TZ,
+  }) ?? '—'
 
-  const fmtHora = (iso) => new Date(iso).toLocaleTimeString('es-CO', {
-    hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Bogota',
-  })
+  const fmtH = (iso) => {
+    const d = toDate(iso)
+    if (!d) return '—'
+    return d.toLocaleTimeString('es-CO', {
+      hour: '2-digit', minute: '2-digit', hour12: false, timeZone: TZ,
+    })
+  }
 
   const fmtVal = (val) =>
-    val === 0
-      ? '—'
+    val === 0 ? '—'
       : new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(val)
 
   const filas = [
-    { label: 'Base',             val: cajaInicial,  destacado: false },
-    { label: 'Entrego en sobre', val: entregaSobre, destacado: true  },
-    { label: 'Nequi',            val: nequi,        destacado: false },
-    { label: 'Daviplata',        val: daviplata,    destacado: false },
-    { label: 'Bold',             val: bold,         destacado: false },
+    { label: 'Base',             val: cajaInicial,  destacado: false               },
+    { label: 'Entrego en sobre', val: entregaSobre, destacado: true                },
+    { label: 'Nequi',            val: nequi,        destacado: false               },
+    { label: 'Daviplata',        val: daviplata,    destacado: false               },
+    { label: 'Bold',             val: bold,         destacado: false               },
     { label: 'Gastos',           val: totalGastos,  destacado: false, esGasto: true },
   ]
 
   return (
     <div className="rc-overlay">
-
-      {/* Partículas decorativas de fondo */}
       <div className="rc-particles">
         {[...Array(6)].map((_, i) => (
           <div key={i} className={`rc-particle rc-particle-${i + 1}`} />
@@ -81,7 +115,6 @@ function ResumenCierre({ resumen, onCerrar }) {
 
       <div className="rc-carta-wrap">
 
-        {/* ── Solapa superior de la carta ── */}
         <div className="rc-solapa">
           <div className="rc-solapa-inner">
             <div className="rc-solapa-logo">
@@ -92,33 +125,24 @@ function ResumenCierre({ resumen, onCerrar }) {
               <p className="rc-solapa-script">Sabana</p>
             </div>
           </div>
-          {/* Triángulo de solapa */}
           <div className="rc-solapa-triangle" />
         </div>
 
-        {/* ── Carta principal ── */}
         <div className="rc-carta">
-
-          {/* Esquinas decorativas */}
           <div className="rc-corner rc-corner-tl" />
           <div className="rc-corner rc-corner-tr" />
           <div className="rc-corner rc-corner-bl" />
           <div className="rc-corner rc-corner-br" />
 
-          {/* Fecha arriba derecha */}
           <p className="rc-fecha">{fechaTexto}</p>
 
-          {/* Título */}
           <div className="rc-titulo-wrap">
             <div className="rc-titulo-line" />
             <h2 className="rc-titulo">Cierre de Caja</h2>
             <div className="rc-titulo-line" />
           </div>
 
-          {/* Cuerpo: izquierda + derecha */}
           <div className="rc-cuerpo">
-
-            {/* ── Columna izquierda: cifras ── */}
             <div className="rc-col-izq">
               {filas.map((f, i) => (
                 <div
@@ -135,10 +159,8 @@ function ResumenCierre({ resumen, onCerrar }) {
               ))}
             </div>
 
-            {/* Divisor vertical */}
             <div className="rc-divisor-v" />
 
-            {/* ── Columna derecha: turnos ── */}
             <div className="rc-col-der">
               <p className="rc-turnos-label">Turnos</p>
               {turnos.map((t, i) => (
@@ -147,22 +169,18 @@ function ResumenCierre({ resumen, onCerrar }) {
                   className="rc-turno"
                   style={{ animationDelay: `${0.35 + i * 0.1}s` }}
                 >
-                  <div className="rc-turno-av">
-                    {(t.nombre || '?').split(' ').map(p => p[0]).join('').substring(0, 2).toUpperCase()}
-                  </div>
+                  <div className="rc-turno-av">{iniciales(t.nombre)}</div>
                   <div>
                     <p className="rc-turno-nombre">{t.nombre}</p>
                     <p className="rc-turno-horas">
-                      {fmtHora(t.hora_inicio)}&nbsp;→&nbsp;{fmtHora(t.hora_fin)}
+                      {fmtH(t.hora_inicio)}&nbsp;→&nbsp;{fmtH(t.hora_fin)}
                     </p>
                   </div>
                 </div>
               ))}
             </div>
-
           </div>
 
-          {/* Línea decorativa de firma */}
           <div className="rc-firma-row">
             <div className="rc-firma-line" />
             <span className="rc-firma-sello">
@@ -171,7 +189,6 @@ function ResumenCierre({ resumen, onCerrar }) {
             <div className="rc-firma-line" />
           </div>
 
-          {/* Botón */}
           <button
             className="rc-btn"
             onClick={async () => { onCerrar(); await supabase.auth.signOut() }}
@@ -179,16 +196,14 @@ function ResumenCierre({ resumen, onCerrar }) {
             <span className="material-icons-outlined">check_circle</span>
             Entendido · Cerrar sesión
           </button>
-
         </div>
 
-        {/* ── Sombra inferior de carta doblada ── */}
         <div className="rc-carta-sombra" />
-
       </div>
     </div>
   )
 }
+
 
 // ══════════════════════════════════════════════════════
 //  CONFIG ADMIN PRINCIPAL
@@ -204,30 +219,29 @@ function ConfigAdmin({ onNavegar }) {
   const [cerrandoTodo, setCerrandoTodo] = useState(false)
   const [userActual, setUserActual]     = useState(null)
   const [confirm, setConfirm]           = useState(null)
-  const [resumen, setResumen]           = useState(null)   // datos del cierre
+  const [resumen, setResumen]           = useState(null)
 
-
-  // ── Reloj ──
   useEffect(() => {
     const actualizar = () => {
       const ahora = new Date()
-      setHora(ahora.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true }))
-      setFecha(ahora.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }))
+      setHora(ahora.toLocaleTimeString('es-CO', {
+        hour: '2-digit', minute: '2-digit', hour12: true, timeZone: TZ,
+      }))
+      setFecha(ahora.toLocaleDateString('es-CO', {
+        day: '2-digit', month: 'short', year: 'numeric', timeZone: TZ,
+      }))
     }
     actualizar()
     const iv = setInterval(actualizar, 1000)
     return () => clearInterval(iv)
   }, [])
 
-
-  // ── Cargar datos ──
   const cargar = async () => {
     setCargando(true)
 
     const { data: { user } } = await supabase.auth.getUser()
     setUserActual(user)
 
-    // 1. Caja abierta
     const { data: cajaActual } = await supabase
       .from('caja')
       .select('*')
@@ -235,56 +249,63 @@ function ConfigAdmin({ onNavegar }) {
       .limit(1)
       .maybeSingle()
 
-    const desde       = cajaActual?.fecha_apertura ?? new Date(new Date().setHours(0,0,0,0)).toISOString()
+    const desde       = cajaActual?.fecha_apertura ?? new Date(new Date().setHours(0, 0, 0, 0)).toISOString()
     const cajaInicial = cajaActual?.caja_inicial ?? 0
 
-    // 2. Turnos abiertos
     const { data: turnosData } = await supabase
       .from('turnos')
       .select('*')
       .is('hora_fin', null)
       .order('hora_inicio', { ascending: true })
 
-    // 3. Perfiles
+    console.log('%c[cargar] turnosData:', 'color:#3B82F6;font-weight:bold', turnosData)
+
     const adminIds = [...new Set((turnosData ?? []).map(t => t.admin_id))]
+    console.log('%c[cargar] adminIds a buscar:', 'color:#3B82F6;font-weight:bold', adminIds)
+
     let profilesMap = {}
     if (adminIds.length > 0) {
-      const { data: profilesData } = await supabase
+      const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select('id, full_name, email')
+        .select('id, full_name')
         .in('id', adminIds)
+
+      console.log('%c[cargar] profilesData:', 'color:#3B82F6;font-weight:bold', profilesData)
+      console.log('%c[cargar] profilesError:', 'color:red;font-weight:bold', profilesError)
+
       ;(profilesData ?? []).forEach(p => { profilesMap[p.id] = p })
     }
-    const turnosConPerfil = (turnosData ?? []).map(t => ({
-      ...t, profiles: profilesMap[t.admin_id] ?? null,
-    }))
 
-    // 4. Gastos
+    console.log('%c[cargar] profilesMap final:', 'color:#3B82F6;font-weight:bold', profilesMap)
+
+    const turnosConPerfil = (turnosData ?? []).map(t => {
+      const perfil = profilesMap[t.admin_id]
+      const nombre = nombrePerfil(perfil)
+      console.log(`[cargar] turno ${t.id} | admin_id: ${t.admin_id} | perfil encontrado:`, perfil, '| nombre:', nombre)
+      return { ...t, nombre }
+    })
+
     const { data: gastosData } = await supabase
       .from('gastos')
       .select('*')
       .gte('created_at', desde)
       .order('created_at', { ascending: false })
 
-    // 5. Ventas
     const { data: cuentasData } = await supabase
       .from('cuentas')
       .select('subtotal_productos, subtotal_tiempo, metodo_pago')
       .eq('estado', 'liquidada')
       .gte('hora_cierre', desde)
 
-    const totalVentas = (cuentasData ?? []).reduce((s, c) =>
+    const totalVentas    = (cuentasData ?? []).reduce((s, c) =>
       s + redondear50((c.subtotal_tiempo ?? 0) + (c.subtotal_productos ?? 0)), 0)
-
     const ventasEfectivo = (cuentasData ?? [])
       .filter(c => c.metodo_pago === 'efectivo')
       .reduce((s, c) => s + redondear50((c.subtotal_tiempo ?? 0) + (c.subtotal_productos ?? 0)), 0)
-
-    const gastosCaja = (gastosData ?? [])
+    const gastosCaja     = (gastosData ?? [])
       .filter(g => g.metodo_pago === 'Caja')
       .reduce((s, g) => s + (g.precio ?? 0), 0)
-
-    const totalGastos = (gastosData ?? []).reduce((s, g) => s + (g.precio ?? 0), 0)
+    const totalGastos    = (gastosData ?? []).reduce((s, g) => s + (g.precio ?? 0), 0)
 
     setTurnos(turnosConPerfil)
     setGastos(gastosData ?? [])
@@ -298,33 +319,27 @@ function ConfigAdmin({ onNavegar }) {
 
   useEffect(() => { cargar() }, [])
 
-
-  // ── Cerrar turno propio ──
   const cerrarTurnoPropio = async () => {
     setCerrando(true)
     const turno = turnos.find(t => t.admin_id === userActual?.id)
     if (turno) {
-      await supabase.from('turnos').update({ hora_fin: new Date().toISOString() }).eq('id', turno.id)
+      await supabase.from('turnos')
+        .update({ hora_fin: new Date().toISOString() })
+        .eq('id', turno.id)
     }
     await supabase.auth.signOut()
   }
 
-
-  // ── Cerrar Todo → recopilar resumen → cerrar caja y turnos ──
   const cerrarTodos = async () => {
     setCerrandoTodo(true)
     const ahora = new Date().toISOString()
 
-    // --- Recopilar datos para el resumen ANTES de cerrar ---
-
-    // Caja actual
     const { data: cajaActual } = await supabase
       .from('caja').select('*').eq('is_open', true).limit(1).maybeSingle()
 
-    const desde       = cajaActual?.fecha_apertura ?? new Date(new Date().setHours(0,0,0,0)).toISOString()
+    const desde       = cajaActual?.fecha_apertura ?? new Date(new Date().setHours(0, 0, 0, 0)).toISOString()
     const cajaInicial = cajaActual?.caja_inicial ?? 0
 
-    // Ventas agrupadas por método
     const { data: cuentasData } = await supabase
       .from('cuentas')
       .select('subtotal_productos, subtotal_tiempo, metodo_pago')
@@ -339,32 +354,47 @@ function ConfigAdmin({ onNavegar }) {
         .reduce((s, c) => s + redondear50((c.subtotal_tiempo ?? 0) + (c.subtotal_productos ?? 0)), 0),
     }))
 
-    // Todos los turnos de esta caja con perfiles
     const { data: todosLosTurnos } = await supabase
       .from('turnos')
       .select('*')
-      .eq('caja_id', cajaActual?.id)
+      .gte('hora_inicio', desde)
       .order('hora_inicio', { ascending: true })
 
+    console.log('%c[cerrarTodos] todosLosTurnos:', 'color:#D4AF37;font-weight:bold', todosLosTurnos)
+
     const adminIdsTurnos = [...new Set((todosLosTurnos ?? []).map(t => t.admin_id))]
+    console.log('%c[cerrarTodos] adminIds:', 'color:#D4AF37;font-weight:bold', adminIdsTurnos)
+
     let pMap = {}
     if (adminIdsTurnos.length > 0) {
-      const { data: pData } = await supabase
-        .from('profiles').select('id, full_name, email').in('id', adminIdsTurnos)
+      const { data: pData, error: pError } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', adminIdsTurnos)
+
+      console.log('%c[cerrarTodos] profilesData:', 'color:#D4AF37;font-weight:bold', pData)
+      console.log('%c[cerrarTodos] profilesError:', 'color:red;font-weight:bold', pError)
+
       ;(pData ?? []).forEach(p => { pMap[p.id] = p })
     }
-    const turnosResumen = (todosLosTurnos ?? []).map(t => ({
-      id:          t.id,
-      nombre:      pMap[t.admin_id]?.full_name || pMap[t.admin_id]?.email || 'Empleado',
-      hora_inicio: t.hora_inicio,
-      hora_fin:    t.hora_fin ?? ahora,
-    }))
 
-    // Gastos
+    console.log('%c[cerrarTodos] pMap final:', 'color:#D4AF37;font-weight:bold', pMap)
+
+    const turnosResumen = (todosLosTurnos ?? []).map(t => {
+      const perfil = pMap[t.admin_id]
+      const nombre = nombrePerfil(perfil)
+      console.log(`[cerrarTodos] turno ${t.id} | admin_id: ${t.admin_id} | perfil:`, perfil, '| nombre:', nombre)
+      return {
+        id:          t.id,
+        nombre,
+        hora_inicio: t.hora_inicio,
+        hora_fin:    t.hora_fin ?? ahora,
+      }
+    })
+
     const { data: gastosData } = await supabase
       .from('gastos').select('*').gte('created_at', desde)
 
-    // --- Cerrar caja y turnos ---
     await supabase.from('caja')
       .update({ is_open: false, fecha_cierre: ahora })
       .eq('is_open', true)
@@ -376,7 +406,6 @@ function ConfigAdmin({ onNavegar }) {
     setCerrandoTodo(false)
     setConfirm(null)
 
-    // Mostrar resumen
     setResumen({
       cajaInicial,
       ventas,
@@ -387,12 +416,9 @@ function ConfigAdmin({ onNavegar }) {
     })
   }
 
-
-  // ── Si hay resumen activo, mostrar pantalla de cierre ──
   if (resumen) {
     return <ResumenCierre resumen={resumen} onCerrar={() => { setResumen(null); cargar() }} />
   }
-
 
   return (
     <div className="ca-root">
@@ -401,7 +427,9 @@ function ConfigAdmin({ onNavegar }) {
         <div className="ca-overlay" onClick={() => setConfirm(null)}>
           <div className="ca-confirm" onClick={e => e.stopPropagation()}>
             <div className="ca-confirm-icon">
-              <span className="material-icons-outlined">{confirm === 'todo' ? 'lock_reset' : 'hourglass_disabled'}</span>
+              <span className="material-icons-outlined">
+                {confirm === 'todo' ? 'lock_reset' : 'hourglass_disabled'}
+              </span>
             </div>
             <h3 className="ca-confirm-title">
               {confirm === 'todo' ? '¿Cerrar toda la caja?' : '¿Cerrar tu turno?'}
@@ -409,7 +437,7 @@ function ConfigAdmin({ onNavegar }) {
             <p className="ca-confirm-desc">
               {confirm === 'todo'
                 ? 'Se cerrarán TODOS los turnos activos y la caja del día. Esta acción no se puede deshacer.'
-                : 'Al cerrar tu turno se cerrará tu sesión automáticamente. La confirmación de que tu turno fue cerrado es que habrás salido del sistema.'}
+                : 'Al cerrar tu turno se cerrará tu sesión automáticamente.'}
             </p>
             <div className="ca-confirm-btns">
               <button className="ca-confirm-cancel" onClick={() => setConfirm(null)}>Cancelar</button>
@@ -456,7 +484,9 @@ function ConfigAdmin({ onNavegar }) {
 
         <header className="ca-header">
           <h1 className="ca-header-title">Configuración Administrativa</h1>
-          <p className="ca-header-sub">Control de turnos, caja y supervisión de operaciones en tiempo real</p>
+          <p className="ca-header-sub">
+            Control de turnos, caja y supervisión de operaciones en tiempo real
+          </p>
         </header>
 
         <div className="ca-stats-grid">
@@ -476,7 +506,9 @@ function ConfigAdmin({ onNavegar }) {
                 <span className="material-icons-outlined">shopping_cart_checkout</span>
               </div>
             </div>
-            <h3 className="ca-stat-value ca-stat-red">{cargando ? '—' : formatCOP(stats.gastosMuest)}</h3>
+            <h3 className="ca-stat-value ca-stat-red">
+              {cargando ? '—' : formatCOP(stats.gastosMuest)}
+            </h3>
           </div>
           <div className="ca-stat-card ca-stat-card-gold">
             <div className="ca-stat-top">
@@ -493,7 +525,9 @@ function ConfigAdmin({ onNavegar }) {
           <div className="ca-action-card ca-action-gold">
             <div className="ca-action-info">
               <h2 className="ca-action-title">Cerrar Turno Actual</h2>
-              <p className="ca-action-desc">Finaliza tu periodo de trabajo. Tu sesión se cerrará automáticamente.</p>
+              <p className="ca-action-desc">
+                Finaliza tu periodo de trabajo. Tu sesión se cerrará automáticamente.
+              </p>
             </div>
             <button className="ca-btn-gold" onClick={() => setConfirm('turno')}>
               <span className="material-icons-outlined">hourglass_disabled</span>Cerrar Turno
@@ -502,7 +536,9 @@ function ConfigAdmin({ onNavegar }) {
           <div className="ca-action-card ca-action-grey">
             <div className="ca-action-info">
               <h2 className="ca-action-title ca-action-title-dark">Cerrar Caja General</h2>
-              <p className="ca-action-desc">Cierre total. Genera el resumen del día con todos los ingresos y gastos.</p>
+              <p className="ca-action-desc">
+                Cierre total. Genera el resumen del día con todos los ingresos y gastos.
+              </p>
             </div>
             <button className="ca-btn-red" onClick={() => setConfirm('todo')}>
               <span className="material-icons-outlined">lock_reset</span>Cerrar Todo
@@ -511,6 +547,7 @@ function ConfigAdmin({ onNavegar }) {
         </section>
 
         <div className="ca-tables-grid">
+
           <div className="ca-table-card ca-table-main">
             <div className="ca-table-header">
               <div className="ca-table-header-left">
@@ -539,20 +576,19 @@ function ConfigAdmin({ onNavegar }) {
                   ) : turnos.length === 0 ? (
                     <tr><td colSpan={4} className="ca-empty">No hay turnos activos</td></tr>
                   ) : turnos.map(t => {
-                    const nombre = t.profiles?.full_name || t.profiles?.email || 'Empleado'
-                    const esMio  = t.admin_id === userActual?.id
+                    const esMio = t.admin_id === userActual?.id
                     return (
                       <tr key={t.id} className={esMio ? 'ca-row-mine' : ''}>
                         <td>
                           <div className="ca-empleado">
-                            <div className="ca-avatar">{iniciales(nombre)}</div>
+                            <div className="ca-avatar">{iniciales(t.nombre)}</div>
                             <span className="ca-empleado-nombre">
-                              {nombre} {esMio && <span className="ca-yo">(tú)</span>}
+                              {t.nombre}{esMio && <span className="ca-yo"> (tú)</span>}
                             </span>
                           </div>
                         </td>
                         <td className="ca-td-hora">{formatHora(t.hora_inicio)}</td>
-                        <td className="ca-td-monto"><span className="ca-td-na">—</span></td>
+                        <td><span className="ca-td-na">—</span></td>
                         <td className="ca-th-c">
                           <span className="ca-tag ca-tag-blue">Activo</span>
                         </td>
@@ -599,6 +635,7 @@ function ConfigAdmin({ onNavegar }) {
               <span className="ca-gastos-footer-valor">{formatCOP(stats.gastosMuest)}</span>
             </div>
           </div>
+
         </div>
 
         <p className="ca-footer">© 2026 Club de Billar Sabana. Sistema de Gestión Premium</p>
