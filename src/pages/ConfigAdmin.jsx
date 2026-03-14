@@ -8,7 +8,9 @@ const formatCOP = (val) =>
 
 const formatHora = (iso) => {
   if (!iso) return '—'
-  return new Date(iso).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true })
+  return new Date(iso).toLocaleTimeString('es-CO', {
+    hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'America/Bogota',
+  })
 }
 
 const iniciales = (nombre) => {
@@ -16,17 +18,21 @@ const iniciales = (nombre) => {
   return nombre.split(' ').map(p => p[0]).join('').substring(0, 2).toUpperCase()
 }
 
+const redondear50 = (v) => Math.round(v / 50) * 50
+
+
 function ConfigAdmin({ onNavegar }) {
-  const [turnos, setTurnos]       = useState([])
-  const [gastos, setGastos]       = useState([])
-  const [stats, setStats]         = useState({ ventas: 0, gastos: 0, caja: 0 })
-  const [hora, setHora]           = useState('')
-  const [fecha, setFecha]         = useState('')
-  const [cargando, setCargando]   = useState(true)
-  const [cerrando, setCerrando]   = useState(false)
+  const [turnos, setTurnos]             = useState([])
+  const [gastos, setGastos]             = useState([])
+  const [stats, setStats]               = useState({ ventas: 0, gastosMuest: 0, caja: 0 })
+  const [hora, setHora]                 = useState('')
+  const [fecha, setFecha]               = useState('')
+  const [cargando, setCargando]         = useState(true)
+  const [cerrando, setCerrando]         = useState(false)
   const [cerrandoTodo, setCerrandoTodo] = useState(false)
-  const [userActual, setUserActual] = useState(null)
-  const [confirm, setConfirm]     = useState(null) // 'turno' | 'todo'
+  const [userActual, setUserActual]     = useState(null)
+  const [confirm, setConfirm]           = useState(null)
+
 
   // ── Reloj ──
   useEffect(() => {
@@ -40,6 +46,7 @@ function ConfigAdmin({ onNavegar }) {
     return () => clearInterval(iv)
   }, [])
 
+
   // ── Cargar datos ──
   const cargar = async () => {
     setCargando(true)
@@ -47,65 +54,109 @@ function ConfigAdmin({ onNavegar }) {
     const { data: { user } } = await supabase.auth.getUser()
     setUserActual(user)
 
-    const hoyInicio = new Date(); hoyInicio.setHours(0,0,0,0)
-    const hoyFin    = new Date(); hoyFin.setHours(23,59,59,999)
+    // 1. Caja abierta → fuente de verdad para caja_inicial y fecha de inicio
+    const { data: cajaActual } = await supabase
+      .from('caja')
+      .select('*')
+      .eq('is_open', true)
+      .limit(1)
+      .maybeSingle()
 
-    // Turnos abiertos con perfil del empleado
+    const desde      = cajaActual?.fecha_apertura ?? new Date(new Date().setHours(0,0,0,0)).toISOString()
+    const cajaInicial = cajaActual?.caja_inicial ?? 0
+
+    // 2. Todos los turnos abiertos (sin join cross-schema)
     const { data: turnosData } = await supabase
       .from('turnos')
-      .select('*, profiles(full_name, email)')
+      .select('*')
       .is('hora_fin', null)
       .order('hora_inicio', { ascending: true })
 
-    // Gastos de hoy
+    // 3. Perfiles por separado
+    const adminIds = [...new Set((turnosData ?? []).map(t => t.admin_id))]
+    let profilesMap = {}
+    if (adminIds.length > 0) {
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .in('id', adminIds)
+      ;(profilesData ?? []).forEach(p => { profilesMap[p.id] = p })
+    }
+    const turnosConPerfil = (turnosData ?? []).map(t => ({
+      ...t, profiles: profilesMap[t.admin_id] ?? null,
+    }))
+
+    // 4. Gastos desde apertura de caja
     const { data: gastosData } = await supabase
       .from('gastos')
       .select('*')
-      .gte('created_at', hoyInicio.toISOString())
-      .lte('created_at', hoyFin.toISOString())
+      .gte('created_at', desde)
       .order('created_at', { ascending: false })
 
-    // Ventas de hoy (cuentas liquidadas)
+    // 5. Ventas desde apertura de caja
     const { data: cuentasData } = await supabase
       .from('cuentas')
-      .select('total')
+      .select('subtotal_productos, subtotal_tiempo, metodo_pago')
       .eq('estado', 'liquidada')
-      .gte('created_at', hoyInicio.toISOString())
-      .lte('created_at', hoyFin.toISOString())
+      .gte('hora_cierre', desde)
 
-    const totalVentas = (cuentasData ?? []).reduce((s, c) => s + (c.total ?? 0), 0)
-    const totalGastos = (gastosData  ?? []).reduce((s, g) => s + (g.precio ?? 0), 0)
-    const cajaInicial = (turnosData  ?? []).reduce((s, t) => s + (t.caja_inicial ?? 0), 0)
+    // ── Stats ──
+    const totalVentas = (cuentasData ?? []).reduce((s, c) =>
+      s + redondear50((c.subtotal_tiempo ?? 0) + (c.subtotal_productos ?? 0)), 0)
 
-    setTurnos(turnosData ?? [])
+    const ventasEfectivo = (cuentasData ?? [])
+      .filter(c => c.metodo_pago === 'efectivo')
+      .reduce((s, c) => s + redondear50((c.subtotal_tiempo ?? 0) + (c.subtotal_productos ?? 0)), 0)
+
+    const gastosCaja = (gastosData ?? [])
+      .filter(g => g.metodo_pago === 'Caja')
+      .reduce((s, g) => s + (g.precio ?? 0), 0)
+
+    const totalGastos = (gastosData ?? []).reduce((s, g) => s + (g.precio ?? 0), 0)
+
+    setTurnos(turnosConPerfil)
     setGastos(gastosData ?? [])
-    setStats({ ventas: totalVentas, gastos: totalGastos, caja: cajaInicial + totalVentas - totalGastos })
+    setStats({
+      ventas:      totalVentas,
+      gastosMuest: totalGastos,
+      caja:        cajaInicial + ventasEfectivo - gastosCaja,
+    })
     setCargando(false)
   }
 
   useEffect(() => { cargar() }, [])
 
-  // ── Cerrar turno propio ──
+
+  // ── Cerrar turno propio → signOut ──
   const cerrarTurnoPropio = async () => {
     setCerrando(true)
     const turno = turnos.find(t => t.admin_id === userActual?.id)
     if (turno) {
       await supabase.from('turnos').update({ hora_fin: new Date().toISOString() }).eq('id', turno.id)
     }
-    setCerrando(false)
+    await supabase.auth.signOut()
+  }
+
+  // ── Cerrar Todo → cierra caja + todos los turnos ──
+  const cerrarTodos = async () => {
+    setCerrandoTodo(true)
+    const ahora = new Date().toISOString()
+
+    // Cerrar la caja abierta
+    await supabase.from('caja')
+      .update({ is_open: false, fecha_cierre: ahora })
+      .eq('is_open', true)
+
+    // Cerrar todos los turnos abiertos
+    await supabase.from('turnos')
+      .update({ hora_fin: ahora })
+      .is('hora_fin', null)
+
+    setCerrandoTodo(false)
     setConfirm(null)
     cargar()
   }
 
-  // ── Cerrar todos los turnos ──
-  const cerrarTodos = async () => {
-    setCerrandoTodo(true)
-    await supabase.from('turnos').update({ hora_fin: new Date().toISOString() }).is('hora_fin', null)
-    setCerrandoTodo(false)
-    setConfirm(null)
-    sessionStorage.removeItem('turno_iniciado')
-    cargar()
-  }
 
   return (
     <div className="ca-root">
@@ -122,8 +173,8 @@ function ConfigAdmin({ onNavegar }) {
             </h3>
             <p className="ca-confirm-desc">
               {confirm === 'todo'
-                ? 'Se cerrarán TODOS los turnos activos. Esta acción no se puede deshacer.'
-                : 'Se registrará la hora de cierre de tu turno actual.'}
+                ? 'Se cerrarán TODOS los turnos activos y la caja del día. Esta acción no se puede deshacer.'
+                : 'Al cerrar tu turno se cerrará tu sesión automáticamente. La confirmación de que tu turno fue cerrado es que habrás salido del sistema.'}
             </p>
             <div className="ca-confirm-btns">
               <button className="ca-confirm-cancel" onClick={() => setConfirm(null)}>Cancelar</button>
@@ -145,8 +196,7 @@ function ConfigAdmin({ onNavegar }) {
         <nav className="ca-nav">
           <div className="ca-nav-left">
             <button className="ca-back-btn" onClick={() => onNavegar('dashboard')}>
-              <span className="material-icons-outlined">arrow_back</span>
-              Volver
+              <span className="material-icons-outlined">arrow_back</span>Volver
             </button>
             <div className="ca-nav-logo">
               <div className="ca-nav-logo-img">
@@ -165,8 +215,7 @@ function ConfigAdmin({ onNavegar }) {
               <strong>{hora}</strong>
             </div>
             <button className="ca-logout-btn" onClick={() => supabase.auth.signOut()}>
-              <span className="material-icons-outlined">logout</span>
-              Cerrar Sesión
+              <span className="material-icons-outlined">logout</span>Cerrar Sesión
             </button>
           </div>
         </nav>
@@ -195,7 +244,7 @@ function ConfigAdmin({ onNavegar }) {
                 <span className="material-icons-outlined">shopping_cart_checkout</span>
               </div>
             </div>
-            <h3 className="ca-stat-value ca-stat-red">{cargando ? '—' : formatCOP(stats.gastos)}</h3>
+            <h3 className="ca-stat-value ca-stat-red">{cargando ? '—' : formatCOP(stats.gastosMuest)}</h3>
           </div>
           <div className="ca-stat-card ca-stat-card-gold">
             <div className="ca-stat-top">
@@ -216,8 +265,7 @@ function ConfigAdmin({ onNavegar }) {
               <p className="ca-action-desc">Finaliza tu periodo de trabajo y genera el resumen de ventas y arqueo.</p>
             </div>
             <button className="ca-btn-gold" onClick={() => setConfirm('turno')}>
-              <span className="material-icons-outlined">hourglass_disabled</span>
-              Cerrar Turno
+              <span className="material-icons-outlined">hourglass_disabled</span>Cerrar Turno
             </button>
           </div>
           <div className="ca-action-card ca-action-grey">
@@ -226,18 +274,14 @@ function ConfigAdmin({ onNavegar }) {
               <p className="ca-action-desc">Cierre total de operaciones y arqueo definitivo de todos los turnos de hoy.</p>
             </div>
             <button className="ca-btn-red" onClick={() => setConfirm('todo')}>
-              <span className="material-icons-outlined">lock_reset</span>
-              Cerrar Todo
+              <span className="material-icons-outlined">lock_reset</span>Cerrar Todo
             </button>
           </div>
         </section>
 
-        
-
         {/* ── Tablas ── */}
         <div className="ca-tables-grid">
 
-          {/* Turnos activos */}
           <div className="ca-table-card ca-table-main">
             <div className="ca-table-header">
               <div className="ca-table-header-left">
@@ -266,9 +310,8 @@ function ConfigAdmin({ onNavegar }) {
                   ) : turnos.length === 0 ? (
                     <tr><td colSpan={4} className="ca-empty">No hay turnos activos</td></tr>
                   ) : turnos.map(t => {
-                    const nombre = t.profiles?.full_name || t.profiles?.email || 'Empleado'
-                    const esPrincipal = t.caja_inicial != null
-                    const esMio = t.admin_id === userActual?.id
+                    const nombre      = t.profiles?.full_name || t.profiles?.email || 'Empleado'
+                    const esMio       = t.admin_id === userActual?.id
                     return (
                       <tr key={t.id} className={esMio ? 'ca-row-mine' : ''}>
                         <td>
@@ -281,12 +324,10 @@ function ConfigAdmin({ onNavegar }) {
                         </td>
                         <td className="ca-td-hora">{formatHora(t.hora_inicio)}</td>
                         <td className="ca-td-monto">
-                          {t.caja_inicial != null ? formatCOP(t.caja_inicial) : <span className="ca-td-na">—</span>}
+                          <span className="ca-td-na">—</span>
                         </td>
                         <td className="ca-th-c">
-                          <span className={`ca-tag ${esPrincipal ? 'ca-tag-blue' : 'ca-tag-grey'}`}>
-                            {esPrincipal ? 'Principal' : 'Bar'}
-                          </span>
+                          <span className="ca-tag ca-tag-blue">Activo</span>
                         </td>
                       </tr>
                     )
@@ -296,7 +337,6 @@ function ConfigAdmin({ onNavegar }) {
             </div>
           </div>
 
-          {/* Gastos */}
           <div className="ca-table-card ca-gastos-card">
             <div className="ca-table-header">
               <div className="ca-table-header-left">
@@ -312,14 +352,14 @@ function ConfigAdmin({ onNavegar }) {
                   <span className="material-icons-outlined ca-spin">autorenew</span> Cargando...
                 </div>
               ) : gastos.length === 0 ? (
-                <div className="ca-empty">Sin gastos registrados hoy</div>
+                <div className="ca-empty">Sin gastos registrados en esta caja</div>
               ) : gastos.map(g => (
                 <div key={g.id} className="ca-gasto-item">
                   <div>
                     <p className="ca-gasto-nombre">{g.descripcion || g.lugar || 'Gasto'}</p>
                     <p className="ca-gasto-meta">
                       {formatHora(g.created_at)}
-                      {g.lugar ? ` · ${g.lugar}` : ''}
+                      {g.lugar       ? ` · ${g.lugar}`       : ''}
                       {g.metodo_pago ? ` · ${g.metodo_pago}` : ''}
                     </p>
                   </div>
@@ -328,8 +368,8 @@ function ConfigAdmin({ onNavegar }) {
               ))}
             </div>
             <div className="ca-gastos-footer">
-              <span className="ca-gastos-footer-label">Total Hoy</span>
-              <span className="ca-gastos-footer-valor">{formatCOP(stats.gastos)}</span>
+              <span className="ca-gastos-footer-label">Total del Turno</span>
+              <span className="ca-gastos-footer-valor">{formatCOP(stats.gastosMuest)}</span>
             </div>
           </div>
 

@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient'
 import './Inventario.css'
 import Sidebar from './Sidebar'
 
+
 const CAT_STYLE = {
   'Cervezas':    'cat-amber',
   'Refrescos':   'cat-blue',
@@ -475,7 +476,7 @@ function Inventario({ onNavegar }) {
       {modalEditar && <ModalProducto producto={modalEditar} categorias={categorias} onGuardar={onGuardar} onCerrar={() => setModalEditar(null)} />}
 
       {/* ════ SIDEBAR ════ */}
-      <Sidebar paginaActual="dashboard" onNavegar={onNavegar} />
+      <Sidebar paginaActual="Inventario" onNavegar={onNavegar} />
 
 
       {/* ════ MAIN ════ */}

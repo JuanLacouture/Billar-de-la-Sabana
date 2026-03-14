@@ -723,7 +723,7 @@ function Cuentas({ onNavegar }) {
       )}
 
       {/* ── SIDEBAR ── */}
-      <Sidebar paginaActual="dashboard" onNavegar={onNavegar} />
+      <Sidebar paginaActual="cuentas" onNavegar={onNavegar} />
 
 
       {/* ── MAIN ── */}

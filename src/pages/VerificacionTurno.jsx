@@ -6,8 +6,9 @@ import './VerificacionTurno.css'
 function VerificacionTurno({ onTurnoIniciado }) {
   const [base, setBase]               = useState('150000')
   const [loading, setLoading]         = useState(false)
-  const [verificando, setVerificando] = useState(true)  // cargando estado inicial
-  const [cajaAbierta, setCajaAbierta] = useState(false) // ya hay un turno abierto
+  const [verificando, setVerificando] = useState(true)
+  const [cajaAbierta, setCajaAbierta] = useState(false)
+  const [cajaId, setCajaId]           = useState(null)
   const [hora, setHora]               = useState('')
   const [error, setError]             = useState(null)
 
@@ -16,36 +17,56 @@ function VerificacionTurno({ onTurnoIniciado }) {
   useEffect(() => {
     const actualizar = () => {
       const ahora = new Date()
-      setHora(ahora.toLocaleTimeString('es-CO', {
-        hour: '2-digit', minute: '2-digit', hour12: true,
-      }))
+      setHora(ahora.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true }))
     }
     actualizar()
-    const intervalo = setInterval(actualizar, 1000)
-    return () => clearInterval(intervalo)
+    const iv = setInterval(actualizar, 1000)
+    return () => clearInterval(iv)
   }, [])
 
 
-  // ── Verificar si ya hay un turno abierto (hora_fin IS NULL) ──
+  // ── Verificar estado ──
   useEffect(() => {
-    const verificarTurno = async () => {
-      const { data, error } = await supabase
-        .from('turnos')
-        .select('id')
-        .is('hora_fin', null)
-        .limit(1)
+    const verificar = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
 
-      if (!error && data && data.length > 0) {
-        setCajaAbierta(true)   // ya existe turno abierto → no pedir caja_inicial
+      // Nivel 0: ¿yo ya tengo turno abierto? → dashboard directo
+      if (user) {
+        const { data: turnoPropio } = await supabase
+          .from('turnos')
+          .select('id')
+          .eq('admin_id', user.id)
+          .is('hora_fin', null)
+          .limit(1)
+
+        if (turnoPropio && turnoPropio.length > 0) {
+          onTurnoIniciado()
+          return
+        }
+      }
+
+      // Nivel 1: ¿hay una caja abierta hoy?
+      const { data: cajaData } = await supabase
+        .from('caja')
+        .select('id')
+        .eq('is_open', true)
+        .limit(1)
+        .maybeSingle()
+
+      if (cajaData) {
+        setCajaAbierta(true)
+        setCajaId(cajaData.id)
       } else {
-        setCajaAbierta(false)  // no hay turno abierto → pedir caja_inicial
+        setCajaAbierta(false)
+        setCajaId(null)
       }
       setVerificando(false)
     }
-    verificarTurno()
+    verificar()
   }, [])
 
 
+  // ── Abrir turno ──
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError(null)
@@ -54,30 +75,37 @@ function VerificacionTurno({ onTurnoIniciado }) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setError('No hay sesión activa.'); setLoading(false); return }
 
-    // Si es el primer turno del día, incluir caja_inicial
-    // Si ya hay turno abierto, solo registrar admin_id + hora_inicio
-    const payload = cajaAbierta
-      ? {
-          admin_id:    user.id,
-          hora_inicio: new Date().toISOString(),
-        }
-      : {
-          admin_id:     user.id,
-          hora_inicio:  new Date().toISOString(),
-          caja_inicial: parseFloat(String(base).replace(/[^0-9.]/g, '')) || 0,
-        }
+    let idCaja = cajaId
 
-    const { error: err } = await supabase.from('turnos').insert(payload)
+    // Si no hay caja abierta → crearla primero
+    if (!cajaAbierta) {
+      const montoBase = parseFloat(String(base).replace(/[^0-9.]/g, '')) || 0
+      const { data: nuevaCaja, error: errCaja } = await supabase
+        .from('caja')
+        .insert({ caja_inicial: montoBase, is_open: true })
+        .select('id')
+        .single()
+
+      if (errCaja) { setError(errCaja.message); setLoading(false); return }
+      idCaja = nuevaCaja.id
+    }
+
+    // Crear el turno vinculado a la caja
+    const { error: errTurno } = await supabase
+      .from('turnos')
+      .insert({
+        admin_id:    user.id,
+        hora_inicio: new Date().toISOString(),
+        caja_id:     idCaja,
+      })
 
     setLoading(false)
-    if (err) { setError(err.message); return }
+    if (errTurno) { setError(errTurno.message); return }
     onTurnoIniciado()
   }
 
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-  }
+  const handleLogout = async () => { await supabase.auth.signOut() }
 
 
   return (
@@ -89,7 +117,6 @@ function VerificacionTurno({ onTurnoIniciado }) {
         />
         <div className="vt-bg-grad"></div>
       </div>
-
 
       <div className="vt-dashboard-blur">
         <header className="vt-dash-header">
@@ -108,7 +135,6 @@ function VerificacionTurno({ onTurnoIniciado }) {
         </main>
       </div>
 
-
       <div className="vt-modal-overlay">
         <div className="vt-modal">
           <div className="vt-modal-header">
@@ -116,16 +142,12 @@ function VerificacionTurno({ onTurnoIniciado }) {
               <span className="material-icons vt-modal-logo-icon">sports_bar</span>
               <div className="vt-modal-logo-dot"></div>
             </div>
-            <h2 className="vt-modal-title">
-              Club de Billar <span>Sabana</span>
-            </h2>
+            <h2 className="vt-modal-title">Club de Billar <span>Sabana</span></h2>
             <p className="vt-modal-subtitle">Portal de Empleados</p>
           </div>
 
-
           <div className="vt-modal-body">
 
-            {/* ── Cargando verificación ── */}
             {verificando ? (
               <div className="vt-verificando">
                 <span className="material-icons vt-spin">autorenew</span>
@@ -137,52 +159,40 @@ function VerificacionTurno({ onTurnoIniciado }) {
                   <h3>{cajaAbierta ? 'Unirse al Turno Activo' : 'Abrir Nuevo Turno'}</h3>
                   <p>
                     {cajaAbierta
-                      ? 'Ya hay una caja abierta. Tu turno será registrado sin base inicial.'
-                      : 'No hay turnos activos. Ingresa la base para comenzar a operar.'}
+                      ? 'La caja ya está abierta. Tu turno será registrado sin base inicial.'
+                      : 'No hay caja abierta. Ingresa la base para comenzar a operar.'}
                   </p>
                 </div>
 
-
-                {/* Badge estado caja */}
                 <div className={`vt-caja-badge ${cajaAbierta ? 'vt-caja-abierta' : 'vt-caja-cerrada'}`}>
-                  <span className="material-icons">
-                    {cajaAbierta ? 'lock_open' : 'lock'}
-                  </span>
+                  <span className="material-icons">{cajaAbierta ? 'lock_open' : 'lock'}</span>
                   <span>{cajaAbierta ? 'Caja actualmente abierta' : 'Caja cerrada — primer turno del día'}</span>
                 </div>
 
-
                 <div className="vt-clock">
                   <span className="material-icons vt-clock-icon">schedule</span>
-                  <span>Hora del Servidor: <strong>{hora}</strong></span>
+                  <span>Hora: <strong>{hora}</strong></span>
                 </div>
-
 
                 {error && (
                   <div className="vt-error">
-                    <span className="material-icons">error_outline</span>
-                    {error}
+                    <span className="material-icons">error_outline</span>{error}
                   </div>
                 )}
 
-
                 <form onSubmit={handleSubmit}>
-                  {/* Solo mostrar caja_inicial si NO hay turno abierto */}
                   {!cajaAbierta && (
                     <div className="vt-form-group">
-                      <label className="vt-label" htmlFor="base">
-                        Base de Caja Inicial
-                      </label>
+                      <label className="vt-label" htmlFor="base">Base de Caja Inicial</label>
                       <div className="vt-input-wrapper">
                         <span className="vt-input-prefix">$</span>
                         <input
                           className="vt-input"
                           id="base"
-                          name="base"
                           type="text"
                           placeholder="0"
                           value={base}
-                          onChange={(e) => setBase(e.target.value)}
+                          onChange={e => setBase(e.target.value)}
                         />
                         <span className="vt-input-suffix">COP</span>
                       </div>
@@ -190,19 +200,11 @@ function VerificacionTurno({ onTurnoIniciado }) {
                     </div>
                   )}
 
-
-                  <button
-                    className="vt-btn-primary"
-                    type="submit"
-                    disabled={loading}
-                  >
-                    <span className="material-icons">
-                      {loading ? 'hourglass_top' : 'lock_open'}
-                    </span>
+                  <button className="vt-btn-primary" type="submit" disabled={loading}>
+                    <span className="material-icons">{loading ? 'hourglass_top' : 'lock_open'}</span>
                     <span>{loading ? 'Iniciando...' : 'Iniciar Turno'}</span>
                   </button>
                 </form>
-
 
                 <button className="vt-logout" onClick={handleLogout}>
                   <span className="material-icons">logout</span>
@@ -210,13 +212,11 @@ function VerificacionTurno({ onTurnoIniciado }) {
                 </button>
               </>
             )}
-
           </div>
         </div>
       </div>
     </>
   )
 }
-
 
 export default VerificacionTurno

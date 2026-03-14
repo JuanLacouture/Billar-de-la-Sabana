@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient'
 import './LiquidarCuenta.css'
 import jsPDF from 'jspdf'
 
+
 const formatCOP = (val) =>
   new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(val)
 
@@ -17,8 +18,9 @@ const METODOS = [
   { key: 'bold',      label: 'Bold',       icon: 'point_of_sale',          bg: 'bg-slate-100',  color: 'text-slate-700'  },
 ]
 
+
 function LiquidarCuenta({ cuenta, itemsAgrupados, segTranscurridos, onVolver, onLiquidado }) {
-  const mesaId       = cuenta.mesa_id ?? cuenta.mesas?.id  // ← fix clave
+  const mesaId       = cuenta.mesa_id ?? cuenta.mesas?.id
   const precioMinuto = cuenta.mesas?.precio_minuto ?? 0
   const subtotalMesa = (segTranscurridos / 60) * precioMinuto
   const subtotalProd = cuenta.subtotal_productos ?? 0
@@ -61,44 +63,35 @@ function LiquidarCuenta({ cuenta, itemsAgrupados, segTranscurridos, onVolver, on
     setErrorMsg(null)
 
     // ── 1. Cerrar cuenta ──
+    // monto_recibido y cambio_devuelto quedan registrados para el arqueo de caja
     try {
       const { error } = await supabase
         .from('cuentas')
         .update({
-          estado:          'liquidada',
-          metodo_pago:     metodo,
-          hora_cierre:     new Date().toISOString(),
-          subtotal_tiempo: subtotalMesa
+          estado:           'liquidada',
+          metodo_pago:      metodo,
+          hora_cierre:      new Date().toISOString(),
+          subtotal_tiempo:  subtotalMesa,
+          monto_recibido:   metodo === 'efectivo' ? recibidoNum : totalRedon,
+          cambio_devuelto:  metodo === 'efectivo' ? cambio      : 0,
         })
         .eq('id', cuenta.id)
 
-      if (error) {
-        setErrorMsg(`Error: ${error.message}`)
-        setLiquidando(false)
-        return
-      }
+      if (error) { setErrorMsg(`Error: ${error.message}`); setLiquidando(false); return }
     } catch (e) {
-      setErrorMsg('Error de conexión')
-      setLiquidando(false)
-      return
+      setErrorMsg('Error de conexión'); setLiquidando(false); return
     }
 
-    // ── 2. Reset mesa (con mesaId resuelto) ──
+    // ── 2. Reset mesa ──
     if (mesaId) {
       try {
-        const { error: rpcError } = await supabase
-          .rpc('reset_mesa', { p_mesa_id: mesaId })
-
+        const { error: rpcError } = await supabase.rpc('reset_mesa', { p_mesa_id: mesaId })
         if (rpcError) {
-          // Plan B: update directo
-          await supabase
-            .from('mesas')
+          await supabase.from('mesas')
             .update({ en_uso: false, hora_inicio: null, cliente_nombre: null })
             .eq('id', mesaId)
         }
-      } catch (e) {
-        console.error('Error reset mesa:', e)
-      }
+      } catch (e) { console.error('Error reset mesa:', e) }
     }
 
     // ── 3. Generar PDF ──
@@ -117,133 +110,80 @@ function LiquidarCuenta({ cuenta, itemsAgrupados, segTranscurridos, onVolver, on
     const marginX = 4
     let y = 8
 
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(11)
-    doc.text('CLUB DE BILLAR', 29, y, { align: 'center' })
-    y += 5
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11)
+    doc.text('CLUB DE BILLAR', 29, y, { align: 'center' }); y += 5
     doc.setFontSize(9)
-    doc.text('DE LA SABANA', 29, y, { align: 'center' })
-    y += 5
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(7)
-    doc.text('Factura de Consumo', 29, y, { align: 'center' })
-    y += 6
+    doc.text('DE LA SABANA', 29, y, { align: 'center' }); y += 5
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7)
+    doc.text('Factura de Consumo', 29, y, { align: 'center' }); y += 6
 
     const ahora = new Date()
-    const fecha = ahora.toLocaleDateString('es-CO')
-    const hora  = ahora.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
     doc.setFontSize(6.5)
-    doc.text(`Fecha: ${fecha}  Hora: ${hora}`, marginX, y)
-    y += 4
-    doc.text(`Mesa Nº: ${String(cuenta.mesas?.numero ?? '--').padStart(2, '0')}`, marginX, y)
-    y += 4
+    doc.text(`Fecha: ${ahora.toLocaleDateString('es-CO')}  Hora: ${ahora.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}`, marginX, y); y += 4
+    doc.text(`Mesa Nº: ${String(cuenta.mesas?.numero ?? '--').padStart(2, '0')}`, marginX, y); y += 4
 
     if (cuenta.clientes?.nombre) {
       doc.setFont('helvetica', 'bold')
       doc.text(`Cliente: ${cuenta.clientes.nombre}`, marginX, y)
-      doc.setFont('helvetica', 'normal')
-      y += 5
-    } else {
-      y += 3
-    }
+      doc.setFont('helvetica', 'normal'); y += 5
+    } else { y += 3 }
 
-    doc.setLineWidth(0.3)
-    doc.line(marginX, y, 54, y)
-    y += 4
+    doc.setLineWidth(0.3); doc.line(marginX, y, 54, y); y += 4
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(6.5)
+    doc.text('DESCRIPCIÓN', marginX, y); doc.text('TOTAL', 54, y, { align: 'right' })
+    doc.setFont('helvetica', 'normal'); y += 2
+    doc.setLineWidth(0.1); doc.line(marginX, y, 54, y); y += 4
 
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(6.5)
-    doc.text('DESCRIPCIÓN', marginX, y)
-    doc.text('TOTAL', 54, y, { align: 'right' })
-    doc.setFont('helvetica', 'normal')
-    y += 2
-    doc.setLineWidth(0.1)
-    doc.line(marginX, y, 54, y)
-    y += 4
-
-    doc.setFontSize(6.5)
-    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(6.5); doc.setFont('helvetica', 'bold')
     doc.text(`Tiempo Mesa ${String(cuenta.mesas?.numero ?? '--').padStart(2, '0')}`, marginX, y)
-    doc.setFont('helvetica', 'normal')
-    y += 3
+    doc.setFont('helvetica', 'normal'); y += 3
     doc.text(`  ${horas}h ${mins}m  ×  ${formatCOP(precioMinuto * 60)}/h`, marginX, y)
-    doc.text(formatCOP(subtotalMesa), 54, y, { align: 'right' })
-    y += 5
+    doc.text(formatCOP(subtotalMesa), 54, y, { align: 'right' }); y += 5
 
     if (itemsAgrupados.length > 0) {
-      doc.setFont('helvetica', 'bold')
-      doc.text('Consumo de Productos', marginX, y)
-      doc.setFont('helvetica', 'normal')
-      y += 4
-
+      doc.setFont('helvetica', 'bold'); doc.text('Consumo de Productos', marginX, y)
+      doc.setFont('helvetica', 'normal'); y += 4
       itemsAgrupados.forEach(item => {
         const nombre = item.productos?.nombre ?? 'Producto'
         const cant   = item.cantidad
         const precio = item.productos?.precio ?? 0
-        doc.setFont('helvetica', 'bold')
-        doc.text(`${cant}x ${nombre}`, marginX, y)
-        doc.setFont('helvetica', 'normal')
-        y += 3
+        doc.setFont('helvetica', 'bold'); doc.text(`${cant}x ${nombre}`, marginX, y)
+        doc.setFont('helvetica', 'normal'); y += 3
         doc.text(`  ${formatCOP(precio)} c/u`, marginX, y)
-        doc.text(formatCOP(cant * precio), 54, y, { align: 'right' })
-        y += 5
+        doc.text(formatCOP(cant * precio), 54, y, { align: 'right' }); y += 5
       })
     }
 
-    doc.setLineWidth(0.2)
-    doc.line(marginX, y, 54, y)
-    y += 4
-
-    doc.setFontSize(7)
-    doc.setFont('helvetica', 'normal')
-    doc.text('Subtotal Mesa:', marginX, y)
-    doc.text(formatCOP(subtotalMesa), 54, y, { align: 'right' })
-    y += 4
-
+    doc.setLineWidth(0.2); doc.line(marginX, y, 54, y); y += 4
+    doc.setFontSize(7); doc.setFont('helvetica', 'normal')
+    doc.text('Subtotal Mesa:', marginX, y); doc.text(formatCOP(subtotalMesa), 54, y, { align: 'right' }); y += 4
     if (subtotalProd > 0) {
-      doc.text('Subtotal Productos:', marginX, y)
-      doc.text(formatCOP(subtotalProd), 54, y, { align: 'right' })
-      y += 4
+      doc.text('Subtotal Productos:', marginX, y); doc.text(formatCOP(subtotalProd), 54, y, { align: 'right' }); y += 4
     }
 
-    doc.setLineWidth(0.4)
-    doc.line(marginX, y, 54, y)
-    y += 4
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(9)
-    doc.text('TOTAL:', marginX, y)
-    doc.text(formatCOP(totalRedon), 54, y, { align: 'right' })
-    y += 7
+    doc.setLineWidth(0.4); doc.line(marginX, y, 54, y); y += 4
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9)
+    doc.text('TOTAL:', marginX, y); doc.text(formatCOP(totalRedon), 54, y, { align: 'right' }); y += 7
 
     const metodoPago = METODOS.find(m => m.key === metodo)?.label ?? metodo
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(6.5)
-    doc.text(`Método de pago: ${metodoPago}`, marginX, y)
-    y += 4
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5)
+    doc.text(`Método de pago: ${metodoPago}`, marginX, y); y += 4
 
     if (metodo === 'efectivo') {
-      doc.text(`Recibido: ${formatCOP(recibidoNum)}`, marginX, y)
-      y += 4
+      doc.text(`Recibido: ${formatCOP(recibidoNum)}`, marginX, y); y += 4
       doc.setFont('helvetica', 'bold')
       doc.text(`Cambio:   ${formatCOP(cambio)}`, marginX, y)
-      doc.setFont('helvetica', 'normal')
-      y += 6
-    } else {
-      y += 3
-    }
+      doc.setFont('helvetica', 'normal'); y += 6
+    } else { y += 3 }
 
-    doc.setLineWidth(0.2)
-    doc.line(marginX, y, 54, y)
-    y += 4
-    doc.setFont('helvetica', 'italic')
-    doc.setFontSize(6)
-    doc.text('¡Gracias por su visita!', 29, y, { align: 'center' })
-    y += 3
+    doc.setLineWidth(0.2); doc.line(marginX, y, 54, y); y += 4
+    doc.setFont('helvetica', 'italic'); doc.setFontSize(6)
+    doc.text('¡Gracias por su visita!', 29, y, { align: 'center' }); y += 3
     doc.text('Club de Billar de la Sabana', 29, y, { align: 'center' })
 
-    const url = URL.createObjectURL(doc.output('blob'))
-    setPdfUrl(url)
+    setPdfUrl(URL.createObjectURL(doc.output('blob')))
   }
+
 
   return (
     <div className="lq-root">
@@ -262,12 +202,10 @@ function LiquidarCuenta({ cuenta, itemsAgrupados, segTranscurridos, onVolver, on
               </div>
               <div className="lq-pdf-modal-acciones">
                 <a href={pdfUrl} download={`factura-mesa-${cuenta.mesas?.numero ?? cuenta.id}.pdf`} className="lq-pdf-btn-descargar">
-                  <span className="material-icons-outlined">download</span>
-                  Descargar
+                  <span className="material-icons-outlined">download</span>Descargar
                 </a>
                 <button className="lq-pdf-btn-cerrar" onClick={handleCerrarPdf}>
-                  <span className="material-icons-outlined">close</span>
-                  Cerrar y volver
+                  <span className="material-icons-outlined">close</span>Cerrar y volver
                 </button>
               </div>
             </div>
@@ -287,13 +225,9 @@ function LiquidarCuenta({ cuenta, itemsAgrupados, segTranscurridos, onVolver, on
             <p className="lq-modal-desc">
               ¿Confirma el cobro de <strong>{formatCOP(totalRedon)}</strong>?
             </p>
-            <p className="lq-modal-hint">
-              Se cerrará la mesa y se generará la factura automáticamente.
-            </p>
+            <p className="lq-modal-hint">Se cerrará la mesa y se generará la factura automáticamente.</p>
             <div className="lq-modal-actions">
-              <button className="lq-modal-cancel" onClick={() => setShowModal(false)}>
-                Cancelar
-              </button>
+              <button className="lq-modal-cancel" onClick={() => setShowModal(false)}>Cancelar</button>
               <button className="lq-modal-confirm" onClick={handleConfirmarLiquidar} disabled={liquidando}>
                 <span className="material-icons-outlined">check_circle</span>
                 {liquidando ? 'Procesando...' : 'Confirmar y Generar Factura'}
@@ -305,8 +239,7 @@ function LiquidarCuenta({ cuenta, itemsAgrupados, segTranscurridos, onVolver, on
 
       <header className="lq-header">
         <button className="lq-volver-btn" onClick={onVolver}>
-          <span className="material-icons-outlined">arrow_back</span>
-          Volver
+          <span className="material-icons-outlined">arrow_back</span>Volver
         </button>
         <div className="lq-header-info">
           <h1 className="lq-title">Liquidación de Cuenta</h1>
@@ -318,19 +251,15 @@ function LiquidarCuenta({ cuenta, itemsAgrupados, segTranscurridos, onVolver, on
         <section className="lq-left">
           <div className="lq-resumen">
             <h3 className="lq-section-title">Resumen de Cuenta</h3>
-
             {cuenta.clientes?.nombre && (
               <div className="lq-cliente">
                 <span className="material-icons-outlined">person</span>
                 <span>A nombre de: <strong>{cuenta.clientes.nombre}</strong></span>
               </div>
             )}
-
             <ul className="lq-items">
               <li className="lq-item">
-                <span>
-                  Tiempo Mesa {String(cuenta.mesas?.numero ?? '--').padStart(2, '0')} ({horas}h {mins}m)
-                </span>
+                <span>Tiempo Mesa {String(cuenta.mesas?.numero ?? '--').padStart(2, '0')} ({horas}h {mins}m)</span>
                 <span>{formatCOP(subtotalMesa)}</span>
               </li>
               {itemsAgrupados.map(item => (
@@ -340,7 +269,6 @@ function LiquidarCuenta({ cuenta, itemsAgrupados, segTranscurridos, onVolver, on
                 </li>
               ))}
             </ul>
-
             <div className="lq-total-box">
               <span className="lq-total-label">Total a Pagar</span>
               <span className="lq-total-valor">{formatCOP(totalRedon)}</span>
@@ -380,7 +308,6 @@ function LiquidarCuenta({ cuenta, itemsAgrupados, segTranscurridos, onVolver, on
                 </span>
               </div>
             </div>
-
             {metodo === 'efectivo' && (
               <div className="lq-cambio-row">
                 <span className="lq-cambio-label">Cambio a devolver:</span>
@@ -398,18 +325,14 @@ function LiquidarCuenta({ cuenta, itemsAgrupados, segTranscurridos, onVolver, on
                 className={`lq-tecla ${t === 'C' || t === '⌫' ? 'lq-tecla-special' : ''}`}
                 onClick={() => handleTecla(t)}
               >
-                {t === '⌫'
-                  ? <span className="material-icons-outlined">backspace</span>
-                  : t
-                }
+                {t === '⌫' ? <span className="material-icons-outlined">backspace</span> : t}
               </button>
             ))}
           </div>
 
           {errorMsg && (
             <div className="lq-error">
-              <span className="material-icons-outlined">error</span>
-              {errorMsg}
+              <span className="material-icons-outlined">error</span>{errorMsg}
             </div>
           )}
 

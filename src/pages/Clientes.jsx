@@ -371,7 +371,7 @@ iframe.onload = () => {
         />
       )}
 
-      <Sidebar paginaActual="dashboard" onNavegar={onNavegar} />
+      <Sidebar paginaActual="clientes" onNavegar={onNavegar} />
 
 
       <main className="cl-main">
